@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ const (
 	defaultMinFrames      = 30
 	defaultFinalDelaySecs = 45
 	defaultCaptureSecs    = 25
+	defaultCaptureDelay   = 0
 	defaultMinFreeMB      = 2048
 	defaultFailedTTLDays  = 7
 
@@ -46,8 +48,17 @@ type Config struct {
 	// timelapse recorder rather than a Telegram client.
 	APIFields map[string]string
 
-	StagingDir     string
-	FPS            int
+	StagingDir string
+	FPS        int
+	// CaptureDelay is how long to wait after a layer change before grabbing.
+	// A frame taken the instant layer_num increments catches the toolhead
+	// mid-Z-hop, usually dead centre; a second or two later it has moved on.
+	CaptureDelay time.Duration
+	// Crop is an ffmpeg crop spec, "w:h:x:y", applied to the encoded video and
+	// the cover. Empty leaves the frame whole. The gantry occupies a fixed
+	// band at the top, so cropping it away is the cheapest way to remove the
+	// toolhead entirely — at the cost of the top of tall prints.
+	Crop           string
 	MinFrames      int
 	FinalDelay     time.Duration
 	CaptureTimeout time.Duration
@@ -112,6 +123,8 @@ func load(needSink bool) (*Config, error) {
 		APIToken:       sink("MEDIA_API_TOKEN"),
 		StagingDir:     str("STAGING_DIR", "/staging"),
 		FPS:            num("TIMELAPSE_FPS", defaultFPS),
+		CaptureDelay:   time.Duration(num("CAPTURE_DELAY", defaultCaptureDelay)) * time.Second,
+		Crop:           str("CROP", ""),
 		MinFrames:      num("MIN_FRAMES", defaultMinFrames),
 		FinalDelay:     time.Duration(num("FINAL_FRAME_DELAY", defaultFinalDelaySecs)) * time.Second,
 		CaptureTimeout: time.Duration(num("CAPTURE_TIMEOUT", defaultCaptureSecs)) * time.Second,
@@ -128,8 +141,22 @@ func load(needSink bool) (*Config, error) {
 	if cfg.FPS <= 0 {
 		errs = append(errs, errors.New("TIMELAPSE_FPS must be positive"))
 	}
+	if cfg.CaptureDelay < 0 {
+		errs = append(errs, errors.New("CAPTURE_DELAY must not be negative"))
+	}
+	// Validate the crop HERE rather than letting ffmpeg reject it: the encode
+	// runs once, at the end of a print, so a typo would otherwise surface
+	// hours later with every frame already captured and nothing to show.
+	if cfg.Crop != "" && !cropSpec.MatchString(cfg.Crop) {
+		errs = append(errs, fmt.Errorf("CROP: %q is not w:h:x:y (e.g. 1920:820:0:260)", cfg.Crop))
+	}
 	return cfg, errors.Join(errs...)
 }
+
+// cropSpec matches ffmpeg's numeric crop form. Expressions are legal to
+// ffmpeg but rejected here: a config value that needs evaluating to check is a
+// config value that fails at the worst possible moment.
+var cropSpec = regexp.MustCompile(`^\d+:\d+:\d+:\d+$`)
 
 // megabytes converts a configured MB value to bytes, clamping a negative
 // setting to zero rather than wrapping it into a huge uint64 — a typo'd

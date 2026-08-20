@@ -86,8 +86,11 @@ func (c *Camera) Grab(ctx context.Context, dest string) error {
 	return nil
 }
 
-// Encode muxes the numbered frames in dir into an H.264 mp4.
-func Encode(ctx context.Context, dir, out string, fps int) error {
+// Encode muxes the numbered frames in dir into an H.264 mp4, optionally
+// cropping. Cropping happens here rather than at capture time so the frames on
+// disk stay whole: a crop can then be retuned and the video re-encoded without
+// reprinting anything.
+func Encode(ctx context.Context, dir, out string, fps int, crop string) error {
 	// G204: dir and out are paths this service created inside its own staging
 	// tree.
 	//nolint:gosec // see above
@@ -96,6 +99,12 @@ func Encode(ctx context.Context, dir, out string, fps int) error {
 		"-hide_banner", "-loglevel", "error", "-y",
 		"-framerate", strconv.Itoa(fps),
 		"-i", filepath.Join(dir, "frame-%05d.jpg"),
+	)
+	if crop != "" {
+		cmd.Args = append(cmd.Args, "-vf", "crop="+crop)
+	}
+	cmd.Args = append(
+		cmd.Args,
 		"-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
 		// yuv420p for player compatibility. +faststart moves the moov atom to
 		// the front, which is what lets Telegram render an inline player with
@@ -109,6 +118,21 @@ func Encode(ctx context.Context, dir, out string, fps int) error {
 	info, err := os.Stat(out)
 	if err != nil || info.Size() == 0 {
 		return errors.New("encode produced no file")
+	}
+	return nil
+}
+
+// Crop rewrites an image with the same crop applied to the video, so the cover
+// frame and the footage it introduces are framed identically.
+func Crop(ctx context.Context, src, dst, crop string) error {
+	if crop == "" {
+		return nil
+	}
+	cmd := exec.CommandContext(ctx, "ffmpeg", //nolint:gosec // G204: paths are this service's own; crop is validated at startup
+		"-hide_banner", "-loglevel", "error", "-y",
+		"-i", src, "-vf", "crop="+crop, "-q:v", "2", "-update", "1", dst)
+	if combined, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("crop cover: %w: %s", err, truncate(string(combined), grabErrBytes))
 	}
 	return nil
 }

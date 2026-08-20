@@ -77,6 +77,8 @@ the literal string `"disable"` to an `rtsps://…:322/…` URL, and port 322 ope
 | `MEDIA_API_TOKEN` | — | Bearer token for it |
 | `MEDIA_API_FIELDS` | — | JSON object of extra form fields, posted verbatim |
 | `TIMELAPSE_FPS` | `20` | Playback rate |
+| `CAPTURE_DELAY` | `0` | Seconds to wait after a layer change before grabbing |
+| `CROP` | — | ffmpeg crop `w:h:x:y` applied to video and cover |
 | `MIN_FRAMES` | `30` | Below this the job is discarded, not posted |
 | `FINAL_FRAME_DELAY` | `45` | Seconds to wait before the cover shot |
 | `MIN_FREE_MB` | `2048` | Refuse to capture below this |
@@ -104,6 +106,23 @@ ones, so configuration cannot misdescribe the file being uploaded.
 Use an operator alias for `PRINTER_NAME`, never the serial: the serial is the
 MQTT topic key and the cloud-binding identifier, and the filename is published
 to a channel.
+
+### Improving the picture
+
+Two knobs address the toolhead, which Bambu's own mode parks with G-code this
+service will not inject.
+
+`CAPTURE_DELAY` shifts *when* the frame is taken. At the instant `layer_num`
+increments the head is mid-Z-hop and usually dead centre — the worst frame
+available. One or two seconds later it has moved on. Costs nothing; layer
+times here run 20–55s, and a grab takes about 2.
+
+`CROP` removes the gantry outright, since it occupies a fixed band at the top
+of frame — `CROP=1920:820:0:260` keeps everything below it. Applied at encode
+time, not capture time, so the frames on disk stay whole and a crop can be
+retuned without reprinting. The cover is cropped to match. Validated at
+startup, because the encode runs once at the *end* of a print and a typo would
+otherwise surface with every frame captured and nothing to show.
 
 ## Debugging
 

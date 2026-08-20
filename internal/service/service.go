@@ -350,6 +350,19 @@ func (s *Service) capture(sess *session.Session, layer int) {
 	s.capturing.Store(true)
 	go func() {
 		defer s.capturing.Store(false)
+
+		// Wait before shooting: the instant layer_num increments the toolhead
+		// is mid-Z-hop and usually dead centre, so a frame taken right then is
+		// the worst one available. Held in the capture goroutine, never in the
+		// MQTT callback.
+		if s.cfg.CaptureDelay > 0 {
+			select {
+			case <-time.After(s.cfg.CaptureDelay):
+			case <-s.shutdownCtx.Done():
+				return
+			}
+		}
+
 		dest := sess.FramePath()
 		started := time.Now()
 		if err := s.cam.Grab(s.shutdownCtx, dest); err != nil {
@@ -388,24 +401,7 @@ func (s *Service) finalize(sess *session.Session, endState string, skipDelay boo
 
 	ctx := context.WithoutCancel(s.shutdownCtx)
 
-	cover := filepath.Join(sess.Dir(), "cover.jpg")
-	if skipDelay {
-		// Recovered from disk: the print ended long ago, so there is nothing
-		// to wait for and the camera now shows an empty or reloaded bed.
-		cover = filepath.Join(sess.Dir(), fmt.Sprintf("frame-%05d.jpg", sess.Frames))
-	} else {
-		select {
-		case <-time.After(s.cfg.FinalDelay):
-		case <-s.shutdownCtx.Done():
-		}
-		if err := s.cam.Grab(ctx, cover); err != nil {
-			s.log.Warn("final grab failed; using the last frame", "err", err)
-			cover = filepath.Join(sess.Dir(), fmt.Sprintf("frame-%05d.jpg", sess.Frames))
-		}
-	}
-	if _, err := os.Stat(cover); err != nil {
-		cover = ""
-	}
+	cover := s.coverFrame(ctx, sess, skipDelay)
 
 	if sess.Frames < s.cfg.MinFrames {
 		s.log.Info("too few frames; discarding",
@@ -417,7 +413,7 @@ func (s *Service) finalize(sess *session.Session, endState string, skipDelay boo
 
 	filename := s.filename(sess)
 	video := filepath.Join(sess.Dir(), filename)
-	if err := camera.Encode(ctx, sess.Dir(), video, s.cfg.FPS); err != nil {
+	if err := camera.Encode(ctx, sess.Dir(), video, s.cfg.FPS, s.cfg.Crop); err != nil {
 		s.log.Error("encode failed", "err", err)
 		s.m.Uploads.WithLabelValues("failed").Inc()
 		_ = s.store.Park(sess, "encode-failed")
@@ -458,6 +454,44 @@ func (s *Service) finalize(sess *session.Session, endState string, skipDelay boo
 	}
 	s.m.Uploads.WithLabelValues("failed").Inc()
 	_ = s.store.Park(sess, "upload-failed")
+}
+
+// coverFrame produces the poster image: a fresh grab once the bed has dropped
+// and the head parked, falling back to the last captured frame, cropped to
+// match the footage it introduces. Returns "" when there is nothing usable.
+func (s *Service) coverFrame(ctx context.Context, sess *session.Session, skipDelay bool) string {
+	lastFrame := filepath.Join(sess.Dir(), fmt.Sprintf("frame-%05d.jpg", sess.Frames))
+	cover := filepath.Join(sess.Dir(), "cover.jpg")
+
+	if skipDelay {
+		// Recovered from disk: the print ended long ago, so there is nothing
+		// to wait for and the camera now shows an empty or reloaded bed.
+		cover = lastFrame
+	} else {
+		select {
+		case <-time.After(s.cfg.FinalDelay):
+		case <-s.shutdownCtx.Done():
+		}
+		if err := s.cam.Grab(ctx, cover); err != nil {
+			s.log.Warn("final grab failed; using the last frame", "err", err)
+			cover = lastFrame
+		}
+	}
+
+	if _, err := os.Stat(cover); err != nil {
+		return ""
+	}
+	if s.cfg.Crop == "" {
+		return cover
+	}
+
+	cropped := filepath.Join(sess.Dir(), "cover-cropped.jpg")
+	if err := camera.Crop(ctx, cover, cropped, s.cfg.Crop); err != nil {
+		// A mismatched cover is cosmetic; a missing video is not.
+		s.log.Warn("cover crop failed; using the uncropped frame", "err", err)
+		return cover
+	}
+	return cropped
 }
 
 // awaitCapture blocks until no grab is in flight, or the deadline passes —
