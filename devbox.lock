@@ -224,6 +224,10 @@
       "last_modified": "2026-07-24T05:48:35Z",
       "resolved": "github:NixOS/nixpkgs/335f0738cb2fa9708f3f428e39d2eae975d1338d?lastModified=1784872115&narHash=sha256-THPEF2po0fsoH8gNtp%2BAe0XFDJH3N%2Fol7xO3v6VMTJU%3D"
     },
+    "github:openserbia/go-flake#go_1_26_7": {
+      "last_modified": "2026-08-20T06:44:40Z",
+      "resolved": "github:openserbia/go-flake/da3c89828929599a5136fec793161696cfe3303c?lastModified=1787208280&narHash=sha256-JXT%2BRcTFpH66Yd%2BxsCg%2Ffv%2BGwp5vp89h%2BVgGF%2FsHByc%3D#go_1_26_7"
+    },
     "github:openserbia/go-flake#gofumpt_0_10_0": {
       "last_modified": "2026-08-20T06:44:40Z",
       "resolved": "github:openserbia/go-flake/da3c89828929599a5136fec793161696cfe3303c?lastModified=1787208280&narHash=sha256-JXT%2BRcTFpH66Yd%2BxsCg%2Ffv%2BGwp5vp89h%2BVgGF%2FsHByc%3D#gofumpt_0_10_0"
@@ -235,10 +239,6 @@
     "github:openserbia/go-flake#govulncheck_1_3_0": {
       "last_modified": "2026-08-20T06:44:40Z",
       "resolved": "github:openserbia/go-flake/da3c89828929599a5136fec793161696cfe3303c?lastModified=1787208280&narHash=sha256-JXT%2BRcTFpH66Yd%2BxsCg%2Ffv%2BGwp5vp89h%2BVgGF%2FsHByc%3D#govulncheck_1_3_0"
-    },
-    "github:openserbia/go-flake#packages.x86_64-linux.go_1_26_7": {
-      "last_modified": "2026-08-20T06:44:40Z",
-      "resolved": "github:openserbia/go-flake/da3c89828929599a5136fec793161696cfe3303c?lastModified=1787208280&narHash=sha256-JXT%2BRcTFpH66Yd%2BxsCg%2Ffv%2BGwp5vp89h%2BVgGF%2FsHByc%3D#packages.x86_64-linux.go_1_26_7"
     },
     "go-task@latest": {
       "last_modified": "2026-08-16T22:25:34Z",
