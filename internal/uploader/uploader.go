@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -59,19 +60,21 @@ type Request struct {
 
 // Uploader posts multipart/form-data to the media API.
 type Uploader struct {
-	url     string
-	token   string
-	chatID  int64
-	topicID int
-	silent  bool
-	client  *http.Client
+	url    string
+	token  string
+	fields map[string]string
+	client *http.Client
 }
 
-// New builds an Uploader. The timeout covers the whole upload, which for a
-// several-hundred-megabyte video over the tailnet is minutes, not seconds.
-func New(apiURL, token string, chatID int64, topicID int, silent bool) *Uploader {
+// New builds an Uploader. fields are posted verbatim with every video and are
+// never interpreted here — they carry the consumer's routing, which is not
+// this service's business.
+//
+// The timeout covers the whole upload, which for a several-hundred-megabyte
+// video over a tailnet is minutes, not seconds.
+func New(apiURL, token string, fields map[string]string) *Uploader {
 	return &Uploader{
-		url: apiURL, token: token, chatID: chatID, topicID: topicID, silent: silent,
+		url: apiURL, token: token, fields: fields,
 		client: &http.Client{Timeout: uploadTimeout},
 	}
 }
@@ -155,17 +158,18 @@ func (u *Uploader) prologue(boundary string, req Request) []byte {
 			boundary, name, value)
 	}
 
-	field("chat_id", strconv.FormatInt(u.chatID, 10))
-	if u.topicID > 0 {
-		field("topic_id", strconv.Itoa(u.topicID))
+	// Caller-supplied routing first, so a field the service owns below can
+	// never be silently overridden by configuration.
+	for _, name := range sortedKeys(u.fields) {
+		field(name, u.fields[name])
 	}
+
 	field("caption", req.Caption)
 	field("filename", req.Filename)
 	field("duration", strconv.Itoa(req.Duration))
 	field("width", strconv.Itoa(req.Width))
 	field("height", strconv.Itoa(req.Height))
 	field("no_audio", "true")
-	field("silent", strconv.FormatBool(u.silent))
 
 	if req.CoverPath != "" {
 		// #nosec G304 -- the cover is a frame this service captured.
@@ -182,6 +186,17 @@ func (u *Uploader) prologue(boundary string, req Request) []byte {
 	fmt.Fprintf(&buf, "--%s\r\nContent-Disposition: form-data; name=\"video\"; "+
 		"filename=%q\r\nContent-Type: video/mp4\r\n\r\n", boundary, req.Filename)
 	return buf.Bytes()
+}
+
+// sortedKeys keeps the multipart body deterministic, which makes the request
+// reproducible and its tests stable.
+func sortedKeys(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func randomBoundary() (string, error) {

@@ -2,6 +2,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -33,11 +34,17 @@ type Config struct {
 	// the filename is published to a Telegram channel.
 	PrinterName string
 
+	// APIURL and APIToken are the only thing this service knows about its
+	// destination: an endpoint that accepts a multipart video.
 	APIURL   string
 	APIToken string
-	ChatID   int64
-	TopicID  int
-	Silent   bool
+	// APIFields are extra form fields posted verbatim alongside the video.
+	//
+	// Routing belongs to whatever consumes the video, not here — a chat id, a
+	// topic, a notification preference are all facts about the consumer. The
+	// service passes them through without interpreting them, so it stays a
+	// timelapse recorder rather than a Telegram client.
+	APIFields map[string]string
 
 	StagingDir     string
 	FPS            int
@@ -86,8 +93,6 @@ func Load() (*Config, error) {
 		PrinterName:    str("PRINTER_NAME", "printer"),
 		APIURL:         req("MEDIA_API_URL"),
 		APIToken:       req("MEDIA_API_TOKEN"),
-		TopicID:        num("TELEGRAM_TOPIC_ID", 0),
-		Silent:         truthy(str("TELEGRAM_SILENT", "true")),
 		StagingDir:     str("STAGING_DIR", "/staging"),
 		FPS:            num("TIMELAPSE_FPS", defaultFPS),
 		MinFrames:      num("MIN_FRAMES", defaultMinFrames),
@@ -98,12 +103,10 @@ func Load() (*Config, error) {
 		ListenAddr:     str("LISTEN_ADDR", ":8092"),
 	}
 
-	if raw := req("TELEGRAM_CHAT_ID"); raw != "" {
-		id, err := strconv.ParseInt(raw, 10, 64)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("TELEGRAM_CHAT_ID: %q is not a number", raw))
+	if raw := strings.TrimSpace(os.Getenv("MEDIA_API_FIELDS")); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &cfg.APIFields); err != nil {
+			errs = append(errs, fmt.Errorf("MEDIA_API_FIELDS: not a JSON object of strings: %w", err))
 		}
-		cfg.ChatID = id
 	}
 	if cfg.FPS <= 0 {
 		errs = append(errs, errors.New("TIMELAPSE_FPS must be positive"))
@@ -120,12 +123,4 @@ func megabytes(n int) uint64 {
 		return 0
 	}
 	return uint64(n) * mib
-}
-
-func truthy(v string) bool {
-	switch strings.ToLower(strings.TrimSpace(v)) {
-	case "1", "true", "yes", "on":
-		return true
-	}
-	return false
 }

@@ -46,6 +46,24 @@ tasks:
       # and user lookups in Go rather than glibc's NSS.
       - CGO_ENABLED=0 go build -tags "netgo osusergo" -trimpath -ldflags="-s -w" -o {{.BUILD_PATH}}/bambu-timelapse ./cmd/bambu-timelapse
 
+  dist:
+    desc: Cross-build release archives + checksums into build/dist
+    deps: [deps]
+    vars:
+      VERSION: '{{.VERSION | default "dev"}}'
+    cmds:
+      - rm -rf {{.BUILD_PATH}}/dist && mkdir -p {{.BUILD_PATH}}/dist
+      # Both architectures from one runner: the binary is pure Go with CGO off,
+      # so cross-compiling costs nothing and needs no emulation.
+      - for arch in amd64 arm64; do
+          CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -tags "netgo osusergo" -trimpath
+            -ldflags="-s -w" -o {{.BUILD_PATH}}/dist/bambu-timelapse ./cmd/bambu-timelapse;
+          tar -czf {{.BUILD_PATH}}/dist/bambu-timelapse_{{.VERSION}}_linux_$arch.tar.gz
+            -C {{.BUILD_PATH}}/dist bambu-timelapse;
+          rm {{.BUILD_PATH}}/dist/bambu-timelapse;
+        done
+      - cd {{.BUILD_PATH}}/dist && sha256sum *.tar.gz > SHA256SUMS
+
   ci:
     desc: What CI runs
     cmds:

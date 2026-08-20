@@ -89,9 +89,8 @@ func New(cfg *config.Config, log *slog.Logger) (*Service, error) {
 		state: telemetry.NewState(),
 		store: store,
 		cam:   camera.New(cfg.Host, cfg.AccessCode, cfg.CaptureTimeout),
-		up: uploader.New(cfg.APIURL, cfg.APIToken, cfg.ChatID,
-			cfg.TopicID, cfg.Silent),
-		m: NewMetrics(),
+		up:    uploader.New(cfg.APIURL, cfg.APIToken, cfg.APIFields),
+		m:     NewMetrics(),
 	}, nil
 }
 

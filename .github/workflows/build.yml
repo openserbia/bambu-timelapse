@@ -3,6 +3,7 @@ name: Build and publish
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -12,21 +13,17 @@ concurrency:
 
 jobs:
   ci:
-    # The rpi pool is native arm64 — the architecture this actually runs on.
-    # Building here avoids QEMU emulation entirely, and the runner already has
-    # the Docker socket the publish step needs.
+    # The rpi pool is native arm64 — the architecture this actually runs on —
+    # and it already has devbox, so there is nothing to bootstrap.
     runs-on: [self-hosted, rpi]
     steps:
       - uses: actions/checkout@v5
-
       - name: Lint, test, build
-        run: |
-          curl -fsSL https://get.jetpack.io/devbox | FORCE=1 bash
-          devbox run -- task ci
+        run: devbox run -- task ci
 
   publish:
     needs: ci
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.event_name == 'push'
     runs-on: [self-hosted, rpi]
     permissions:
       contents: read
@@ -40,16 +37,48 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
+      # :latest tracks main for Watchtower. A tagged build additionally
+      # publishes its version, which is what a rollback pins to — the commit
+      # SHA is already recorded in the image's own labels, so tagging by it
+      # would just be a second name for the same thing.
+      - id: tags
+        run: |
+          tags="ghcr.io/openserbia/bambu-timelapse:latest"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tags="${tags}
+          ghcr.io/openserbia/bambu-timelapse:${GITHUB_REF_NAME#v}"
+          fi
+          {
+            echo "list<<EOF"
+            echo "${tags}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          # :latest only — Watchtower on the Pi tracks the tag and recreates
-          # the container when the digest moves. The SHA tag exists so a bad
-          # deploy can be pinned back by digest.
-          tags: |
-            ghcr.io/openserbia/bambu-timelapse:latest
-            ghcr.io/openserbia/bambu-timelapse:${{ github.sha }}
+          tags: ${{ steps.tags.outputs.list }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  release:
+    needs: publish
+    if: github.ref_type == 'tag'
+    runs-on: [self-hosted, rpi]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build release archives
+        run: devbox run -- task dist VERSION=${GITHUB_REF_NAME#v}
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            build/dist/*.tar.gz build/dist/SHA256SUMS

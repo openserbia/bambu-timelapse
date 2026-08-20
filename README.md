@@ -73,17 +73,33 @@ the literal string `"disable"` to an `rtsps://…:322/…` URL, and port 322 ope
 | `PRINTER_SERIAL` | — | Serial; the MQTT topic key |
 | `PRINTER_ACCESS_CODE` | — | LAN access code (MQTT, RTSPS) |
 | `PRINTER_NAME` | `printer` | Alias used in the posted filename |
-| `MEDIA_API_URL` | — | `POST /v1/videos` endpoint |
+| `MEDIA_API_URL` | — | Endpoint that accepts a multipart video |
 | `MEDIA_API_TOKEN` | — | Bearer token for it |
-| `TELEGRAM_CHAT_ID` | — | Target channel |
-| `TELEGRAM_TOPIC_ID` | `0` | Forum topic; `0` posts to the channel root |
-| `TELEGRAM_SILENT` | `true` | Post without a notification |
+| `MEDIA_API_FIELDS` | — | JSON object of extra form fields, posted verbatim |
 | `TIMELAPSE_FPS` | `20` | Playback rate |
 | `MIN_FRAMES` | `30` | Below this the job is discarded, not posted |
 | `FINAL_FRAME_DELAY` | `45` | Seconds to wait before the cover shot |
 | `MIN_FREE_MB` | `2048` | Refuse to capture below this |
 | `FAILED_TTL_DAYS` | `7` | How long parked jobs are kept |
 | `LISTEN_ADDR` | `:8092` | `/metrics` and `/healthz` |
+
+### Where the video goes
+
+The service knows one thing about its destination: it `POST`s
+`multipart/form-data` with a `video` part (last), an optional `thumbnail`, and
+a `caption`. Anything the *consumer* needs in order to route the result is
+configuration, not code:
+
+```sh
+MEDIA_API_FIELDS='{"chat_id":"-1001234567890","topic_id":"907","silent":"true"}'
+```
+
+Those fields are copied into the form untouched. Keeping them opaque is what
+stops a timelapse recorder from turning into a client for whichever chat system
+happens to be on the other end; swapping that consumer changes a JSON string,
+not this repository. Fields the service owns — `caption`, `filename`,
+`duration`, `width`, `height`, `no_audio` — are written after the pass-through
+ones, so configuration cannot misdescribe the file being uploaded.
 
 Use an operator alias for `PRINTER_NAME`, never the serial: the serial is the
 MQTT topic key and the cloud-binding identifier, and the filename is published
@@ -97,6 +113,17 @@ and otherwise looks perfectly healthy.
 
 `bambu_frames_captured_total` flat while `bambu_print_state{state="RUNNING"}`
 is 1 means the camera is failing even though the printer is fine.
+
+## Releases
+
+Pushing a `v*` tag builds the release: cross-compiled `linux/amd64` and
+`linux/arm64` archives with a `SHA256SUMS`, attached to a GitHub Release, plus
+a `ghcr.io/openserbia/bambu-timelapse` image tagged with the version. `:latest`
+tracks `main` and is what Watchtower follows.
+
+```sh
+git tag v0.1.0 && git push origin v0.1.0
+```
 
 ## Development
 

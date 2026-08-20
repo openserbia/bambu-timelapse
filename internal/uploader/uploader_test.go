@@ -75,7 +75,9 @@ func TestPostSendsVideoLastWithExactLength(t *testing.T) {
 	video := writeFixture(t, "print.mp4", "MP4BYTES")
 	thumb := writeFixture(t, "cover.jpg", "JPEGBYTES")
 
-	up := New(srv.URL, "tok", -1001234567890, 907, true)
+	up := New(srv.URL, "tok", map[string]string{
+		"chat_id": "-1001234567890", "topic_id": "907", "silent": "true",
+	})
 	ids, err := up.Post(context.Background(), Request{
 		VideoPath: video, CoverPath: thumb, Filename: "print.mp4",
 		Caption: "done", Duration: 24, Width: 1920, Height: 1080,
@@ -96,9 +98,11 @@ func TestPostSendsVideoLastWithExactLength(t *testing.T) {
 		t.Fatalf("video=%q thumb=%q", got.video, got.thumb)
 	}
 	for key, want := range map[string]string{
-		"chat_id": "-1001234567890", "topic_id": "907", "caption": "done",
-		"filename": "print.mp4", "duration": "24", "width": "1920",
-		"height": "1080", "no_audio": "true", "silent": "true",
+		// Pass-through routing, posted verbatim and never interpreted here.
+		"chat_id": "-1001234567890", "topic_id": "907", "silent": "true",
+		// Fields the service itself owns.
+		"caption": "done", "filename": "print.mp4", "duration": "24",
+		"width": "1920", "height": "1080", "no_audio": "true",
 	} {
 		if got.fields[key] != want {
 			t.Errorf("field %s = %q, want %q", key, got.fields[key], want)
@@ -111,22 +115,43 @@ func TestPostSendsVideoLastWithExactLength(t *testing.T) {
 	}
 }
 
-func TestTopicOmittedWhenUnset(t *testing.T) {
+func TestNoRoutingFieldsWhenUnconfigured(t *testing.T) {
 	got := &capture{}
 	srv := serve(t, 200, `{"data":{"message_ids":[1]}}`, got)
 	defer srv.Close()
 
-	up := New(srv.URL, "tok", -1001, 0, false)
+	// With no pass-through configured the body carries only what the service
+	// itself owns — nothing consumer-specific is invented.
+	up := New(srv.URL, "tok", nil)
 	if _, err := up.Post(context.Background(), Request{
 		VideoPath: writeFixture(t, "v.mp4", "x"), Filename: "v.mp4",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, present := got.fields["topic_id"]; present {
-		t.Fatal("topic_id must be omitted when zero, not sent as 0")
+	for _, unexpected := range []string{"chat_id", "topic_id", "silent"} {
+		if _, present := got.fields[unexpected]; present {
+			t.Fatalf("field %q was sent despite no configuration", unexpected)
+		}
 	}
-	if got.fields["silent"] != "false" {
-		t.Fatalf("silent = %q", got.fields["silent"])
+	if got.fields["no_audio"] != "true" {
+		t.Fatalf("service-owned fields missing: %v", got.fields)
+	}
+}
+
+func TestServiceOwnedFieldsWinOverPassThrough(t *testing.T) {
+	got := &capture{}
+	srv := serve(t, 200, `{"data":{"message_ids":[1]}}`, got)
+	defer srv.Close()
+
+	// Configuration must not be able to lie about the file being uploaded.
+	up := New(srv.URL, "tok", map[string]string{"filename": "spoofed.mp4"})
+	if _, err := up.Post(context.Background(), Request{
+		VideoPath: writeFixture(t, "v.mp4", "x"), Filename: "real.mp4",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got.fields["filename"] != "real.mp4" {
+		t.Fatalf("filename = %q, want the real one to win", got.fields["filename"])
 	}
 }
 
@@ -143,7 +168,7 @@ func TestRetryClassification(t *testing.T) {
 		got := &capture{}
 		srv := serve(t, status, `{"error":{"code":"X"}}`, got)
 
-		up := New(srv.URL, "tok", -1001, 0, false)
+		up := New(srv.URL, "tok", nil)
 		_, err := up.Post(context.Background(), Request{
 			VideoPath: writeFixture(t, "v.mp4", "x"), Filename: "v.mp4",
 		})
@@ -165,7 +190,7 @@ func TestTransportFailureIsRetryable(t *testing.T) {
 	url := srv.URL
 	srv.Close()
 
-	up := New(url, "tok", -1001, 0, false)
+	up := New(url, "tok", nil)
 	_, err := up.Post(context.Background(), Request{
 		VideoPath: writeFixture(t, "v.mp4", "x"), Filename: "v.mp4",
 	})
@@ -176,7 +201,7 @@ func TestTransportFailureIsRetryable(t *testing.T) {
 }
 
 func TestMissingVideoIsNotRetryable(t *testing.T) {
-	up := New("http://127.0.0.1:1", "tok", -1001, 0, false)
+	up := New("http://127.0.0.1:1", "tok", nil)
 	_, err := up.Post(context.Background(), Request{
 		VideoPath: "/nonexistent.mp4", Filename: "v.mp4",
 	})
