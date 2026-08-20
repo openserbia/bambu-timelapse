@@ -41,6 +41,11 @@ const (
 	// grab; a stuck ffmpeg must not hold up the post forever.
 	captureDrainLimit = 10 * time.Second
 
+	// idleReminder is how often an unchanged idle state is repeated, so a
+	// waiting service is visibly alive without flooding the log with a line
+	// per report.
+	idleReminder = 5 * time.Minute
+
 	// Filename component limits, matching what the media API enforces.
 	printerNameLimit = 20
 	jobNameLimit     = 60
@@ -70,6 +75,12 @@ type Service struct {
 	// reconciled guards the startup pass so it runs once, on the first
 	// snapshot that actually carries a printer state.
 	reconciled bool
+	// idleState and idleLogged rate-limit the "nothing to capture" line. The
+	// printer reports every few seconds; saying it every time would bury the
+	// log, and never saying it leaves a waiting service looking like a hung
+	// one.
+	idleState  string
+	idleLogged time.Time
 
 	// font is the path drawtext draws with, resolved once at startup. Empty
 	// means captions are off for this run.
@@ -409,6 +420,7 @@ func (s *Service) handle() {
 		// camera keeps its last frame.
 	case telemetry.StateFinish, telemetry.StateFailed, telemetry.StateIdle:
 		if cur == nil {
+			s.noteIdle(st)
 			return
 		}
 		s.mu.Lock()
@@ -416,6 +428,25 @@ func (s *Service) handle() {
 		s.mu.Unlock()
 		s.startFinalize(cur, st, false)
 	}
+}
+
+// noteIdle reports that the printer has nothing to capture, on every change
+// of state and occasionally after that.
+//
+// Silence is ambiguous: a service waiting for someone to press print and one
+// that has stopped listening produce exactly the same log, and the first
+// thing anyone does with a recorder that "did nothing" is restart it.
+func (s *Service) noteIdle(state string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now()
+	if state == s.idleState && now.Sub(s.idleLogged) < idleReminder {
+		return
+	}
+	s.idleState, s.idleLogged = state, now
+	s.log.Info("printer is not printing; waiting for a job to start",
+		"state", state, "next_note_in", idleReminder)
 }
 
 // changedLayer decides whether this report is worth a frame.
@@ -444,6 +475,9 @@ func (s *Service) begin() *session.Session {
 	}
 	s.mu.Lock()
 	s.current = sess
+	// Forget the idle note, so the next quiet spell is reported at once
+	// rather than swallowed by the reminder interval.
+	s.idleState = ""
 	s.mu.Unlock()
 	s.log.Info("job started",
 		"task_id", taskID, "job", sess.JobName,

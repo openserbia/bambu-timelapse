@@ -330,3 +330,53 @@ func TestUnwritableOutputParksRatherThanLoses(t *testing.T) {
 		t.Fatalf("job not parked: %v %v", parked, err)
 	}
 }
+
+// captureLogs gives a service a logger whose output the test can read.
+func captureLogs(t *testing.T) (*Service, *strings.Builder) {
+	t.Helper()
+	svc := testService(t)
+	var out strings.Builder
+	svc.log = slog.New(slog.NewTextHandler(&out, nil))
+	return svc, &out
+}
+
+func TestIdleIsReportedOncePerState(t *testing.T) {
+	// The printer reports every few seconds. Saying it every time buries the
+	// log; never saying it makes a service that is waiting look like one that
+	// has stopped listening.
+	svc, out := captureLogs(t)
+
+	svc.noteIdle("IDLE")
+	svc.noteIdle("IDLE")
+	svc.noteIdle("IDLE")
+
+	if got := strings.Count(out.String(), "waiting for a job"); got != 1 {
+		t.Fatalf("logged the idle note %d times, want 1:\n%s", got, out)
+	}
+	if !strings.Contains(out.String(), "state=IDLE") {
+		t.Fatalf("the state is not in the line:\n%s", out)
+	}
+}
+
+func TestAChangeOfStateIsReportedImmediately(t *testing.T) {
+	svc, out := captureLogs(t)
+
+	svc.noteIdle("IDLE")
+	svc.noteIdle("FINISH")
+
+	if got := strings.Count(out.String(), "waiting for a job"); got != 2 {
+		t.Fatalf("a new state was not reported:\n%s", out)
+	}
+}
+
+func TestTheReminderRepeatsAfterTheInterval(t *testing.T) {
+	svc, out := captureLogs(t)
+
+	svc.noteIdle("IDLE")
+	svc.idleLogged = time.Now().Add(-idleReminder - time.Second)
+	svc.noteIdle("IDLE")
+
+	if got := strings.Count(out.String(), "waiting for a job"); got != 2 {
+		t.Fatalf("the reminder did not repeat:\n%s", out)
+	}
+}
