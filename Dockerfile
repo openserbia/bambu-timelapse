@@ -17,7 +17,9 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 # is static (CGO_ENABLED=0, netgo/osusergo) so nothing else is pulled in.
 FROM alpine:3.24.1
 
-RUN apk add --no-cache ffmpeg tini \
+# font-dejavu is for drawtext: the layer counter burned into the timelapse
+# needs a real font file, and ffmpeg's own build ships none.
+RUN apk add --no-cache ffmpeg font-dejavu tini \
     && adduser -D -u 1000 bambu \
     && mkdir -p /staging && chown bambu:bambu /staging
 
