@@ -36,15 +36,16 @@ func main() {
 }
 
 func run() int {
-	if len(os.Args) > 1 && os.Args[1] == "debug" {
-		return runDebug(os.Args[2:])
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "debug":
+			return runDebug(os.Args[2:])
+		case "record":
+			return runRecord(os.Args[2:])
+		}
 	}
 
-	level := slog.LevelInfo
-	if err := level.UnmarshalText([]byte(os.Getenv("LOG_LEVEL"))); err != nil {
-		level = slog.LevelInfo
-	}
-	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
+	log := newLogger()
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -74,6 +75,59 @@ func run() int {
 		"host", cfg.Host, "serial", cfg.Serial, "name", cfg.PrinterName)
 	if err := svc.Run(ctx); err != nil {
 		log.Error("service exited with error", "err", err)
+		return 1
+	}
+	return 0
+}
+
+// newLogger honours LOG_LEVEL, falling back to info on anything unreadable —
+// a typo in a log level is not a reason to refuse to run.
+func newLogger() *slog.Logger {
+	level := slog.LevelInfo
+	if err := level.UnmarshalText([]byte(os.Getenv("LOG_LEVEL"))); err != nil {
+		level = slog.LevelInfo
+	}
+	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
+}
+
+// runRecord captures a print and keeps it, rather than posting it.
+//
+// It needs no destination for the same reason debug needs none: checking that
+// a crop frames the plate or that a caption reads right should not require a
+// chat on the other end, or put a test print in one.
+func runRecord(args []string) int {
+	fs := flag.NewFlagSet("record", flag.ContinueOnError)
+	out := fs.String("out", ".", "directory to write the finished video to")
+	staging := fs.String("staging", "./staging", "where frames are kept while capturing")
+	once := fs.Bool("once", false, "stop after the first print is recorded")
+	if err := fs.Parse(args); err != nil {
+		return exitUsage
+	}
+
+	log := newLogger()
+	cfg, err := config.LoadPrinter()
+	if err != nil {
+		log.Error("invalid configuration", "err", err)
+		return 1
+	}
+	// An empty APIURL is what puts the service in local mode; LoadPrinter has
+	// already left it that way.
+	cfg.OutputDir = *out
+	cfg.StagingDir = *staging
+	cfg.Once = *once
+
+	svc, err := service.New(cfg, log)
+	if err != nil {
+		log.Error("cannot start", "err", err)
+		return 1
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	log.Info("recording", "host", cfg.Host, "out", *out, "staging", *staging, "once", *once)
+	if err := svc.Run(ctx); err != nil {
+		log.Error("recording failed", "err", err)
 		return 1
 	}
 	return 0

@@ -40,6 +40,10 @@ before proposing a diff rather than hand-formatting imports.
 | `internal/service` | Wiring: MQTT lifecycle, capture, finalise, `/metrics`, `/healthz` |
 | `internal/debug` | The one-shot `debug` subcommand |
 
+Three entry points share the loop: the daemon (posts), `record` (keeps the
+file locally; no `MEDIA_API_*` needed), and `debug` (one diagnostic dump).
+An empty `APIURL` is what selects local delivery.
+
 `service.go` is the only place the pieces meet; the other packages do not
 import each other.
 

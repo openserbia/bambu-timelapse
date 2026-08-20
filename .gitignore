@@ -4,3 +4,6 @@
 /staging/
 *.cov
 /.task/
+
+# Real credentials; .env.example is the tracked one.
+.env

@@ -3,6 +3,7 @@ package service
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,8 +13,12 @@ import (
 
 const (
 	// fallbackName is used when a job title sanitises down to nothing.
-	fallbackName     = "print"
-	secondsPerHour   = 3600
+	fallbackName   = "print"
+	secondsPerHour = 3600
+	// A local recording is meant to be watched and shared by hand, unlike the
+	// staging tree, which is the service's alone.
+	outputDirPerm    = 0o755
+	outputFilePerm   = 0o644
 	secondsPerMinute = 60
 )
 
@@ -36,6 +41,38 @@ func (s *Service) stagingWritable() (bool, error) {
 		return false, err
 	}
 	return true, os.Remove(probe)
+}
+
+// move renames a file, falling back to a copy when the destination is on
+// another filesystem — which it usually is: staging is a container volume and
+// the output directory is wherever the operator asked for it.
+func move(src, dst string) error {
+	if err := os.Rename(src, dst); err == nil {
+		return nil
+	}
+	// G304: src is a file this service just encoded inside its own staging
+	// tree, and dst is the output directory the operator named on the command
+	// line. Neither crosses a trust boundary.
+	in, err := os.Open(src) //nolint:gosec // see above
+	if err != nil {
+		return err
+	}
+	defer func() { _ = in.Close() }()
+
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, outputFilePerm) //nolint:gosec // see above
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		return err
+	}
+	// Closed explicitly, not deferred: a write error surfaces here, and
+	// removing the source before knowing the copy landed would lose the video.
+	if err := out.Close(); err != nil {
+		return err
+	}
+	return os.Remove(src)
 }
 
 // freeBytes reports free space on the filesystem holding path.

@@ -242,3 +242,91 @@ func TestChangedLayer(t *testing.T) {
 		}
 	}
 }
+
+func TestRecordingIsKeptInsteadOfPosted(t *testing.T) {
+	svc := testService(t)
+	out := t.TempDir()
+	svc.cfg.APIURL = "" // what puts the service in local mode
+	svc.cfg.OutputDir = out
+
+	sess, _, err := svc.store.Create("task-1", "Bracket", 100, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess.Frames = 42
+	video := filepath.Join(sess.Dir(), "video.mp4")
+	cover := filepath.Join(sess.Dir(), "cover.jpg")
+	for _, f := range []string{video, cover} {
+		if err := os.WriteFile(f, []byte("bytes"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	svc.deliverLocally(sess, video, cover, "✅ Bracket", "p2s-01_Bracket.mp4")
+
+	for _, want := range []string{
+		"p2s-01_Bracket.mp4",
+		"p2s-01_Bracket-cover.jpg",
+		// The caption the post would have carried, next to the video: reading
+		// it is how you check it without a chat on the other end.
+		"p2s-01_Bracket.txt",
+	} {
+		if _, err := os.Stat(filepath.Join(out, want)); err != nil {
+			t.Errorf("%s not written: %v", want, err)
+		}
+	}
+	if _, err := os.Stat(sess.Dir()); !os.IsNotExist(err) {
+		t.Errorf("staging kept after a local delivery: %v", err)
+	}
+}
+
+func TestOnceStopsAfterOneRecording(t *testing.T) {
+	svc := testService(t)
+	svc.cfg.APIURL = ""
+	svc.cfg.OutputDir = t.TempDir()
+	svc.cfg.Once = true
+	stopped := false
+	svc.stop = func() { stopped = true }
+
+	sess, _, err := svc.store.Create("task-1", "Bracket", 100, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	video := filepath.Join(sess.Dir(), "video.mp4")
+	if err := os.WriteFile(video, []byte("bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	svc.deliverLocally(sess, video, "", "caption", "out.mp4")
+
+	if !stopped {
+		t.Fatal("-once did not end the run after the print it was started for")
+	}
+}
+
+func TestUnwritableOutputParksRatherThanLoses(t *testing.T) {
+	// The video is the print. If it cannot be saved where the operator asked,
+	// it stays in failed/ for them to fetch, not deleted.
+	svc := testService(t)
+	svc.cfg.APIURL = ""
+	svc.cfg.OutputDir = filepath.Join(t.TempDir(), "file", "under", "a", "file")
+	if err := os.WriteFile(filepath.Dir(filepath.Dir(filepath.Dir(svc.cfg.OutputDir))), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	sess, _, err := svc.store.Create("task-1", "Bracket", 100, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	video := filepath.Join(sess.Dir(), "video.mp4")
+	if err := os.WriteFile(video, []byte("bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	svc.deliverLocally(sess, video, "", "caption", "out.mp4")
+
+	parked, err := os.ReadDir(svc.store.FailedDir())
+	if err != nil || len(parked) != 1 {
+		t.Fatalf("job not parked: %v %v", parked, err)
+	}
+}

@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 // Defaults for every tunable. Named so the zero-config behaviour is readable
@@ -51,7 +53,14 @@ type Config struct {
 	APIFields map[string]string
 
 	StagingDir string
-	FPS        int
+	// OutputDir is where a local recording lands. Set only by the record
+	// command; with it set and APIURL empty the service keeps what it makes
+	// instead of posting it.
+	OutputDir string
+	// Once ends the run after the first print is written. A recording made to
+	// check a crop or a caption should not leave a daemon behind.
+	Once bool
+	FPS  int
 	// CaptureDelay is how long to wait after a layer change before grabbing.
 	// A frame taken the instant layer_num increments catches the toolhead
 	// mid-Z-hop, usually dead centre; a second or two later it has moved on.
@@ -97,6 +106,12 @@ func LoadPrinter() (*Config, error) { return load(false) }
 // load returns every problem at once rather than the first: a misconfigured
 // deploy should need one restart to diagnose, not five.
 func load(needSink bool) (*Config, error) {
+	// A .env is how this runs on a laptop. In the container there is none and
+	// the environment is the compose file's, so a missing file is not an
+	// error — only a malformed one would be, and that surfaces as a missing
+	// required variable below.
+	_ = godotenv.Load()
+
 	var errs []error
 	req := func(key string) string {
 		v := strings.TrimSpace(os.Getenv(key))
@@ -151,6 +166,7 @@ func load(needSink bool) (*Config, error) {
 		APIURL:         sink("MEDIA_API_URL"),
 		APIToken:       sink("MEDIA_API_TOKEN"),
 		StagingDir:     str("STAGING_DIR", "/staging"),
+		OutputDir:      str("OUTPUT_DIR", ""),
 		FPS:            num("TIMELAPSE_FPS", defaultFPS),
 		CaptureDelay:   time.Duration(num("CAPTURE_DELAY", defaultCaptureDelay)) * time.Second,
 		Crop:           str("CROP", ""),

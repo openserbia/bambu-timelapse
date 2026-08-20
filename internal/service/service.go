@@ -74,6 +74,10 @@ type Service struct {
 	// means captions are off for this run.
 	font string
 
+	// stop ends Run early, which is how a one-shot recording finishes after
+	// the print it was started for.
+	stop context.CancelFunc
+
 	capturing   atomic.Bool
 	lastReport  atomic.Int64
 	mqttUp      atomic.Bool
@@ -124,6 +128,9 @@ func (s *Service) resolveFont() string {
 
 // Run connects to the printer and blocks until ctx is cancelled.
 func (s *Service) Run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	s.stop = cancel
 	s.shutdownCtx = ctx
 
 	// Before anything is captured: a print runs for hours, and finding out at
@@ -135,7 +142,9 @@ func (s *Service) Run(ctx context.Context) error {
 	if n := s.store.SweepFailed(s.cfg.FailedTTL); n > 0 {
 		s.log.Info("swept expired failed jobs", "count", n)
 	}
-	go s.retryParked(ctx)
+	if s.cfg.APIURL != "" {
+		go s.retryParked(ctx)
+	}
 
 	opts := mqtt.NewClientOptions().
 		AddBroker("ssl://" + net.JoinHostPort(s.cfg.Host, mqttPort)).
@@ -480,6 +489,11 @@ func (s *Service) finalize(sess *session.Session, endState string, skipDelay boo
 	caption := s.caption(sess, endState, elapsed)
 	_ = os.WriteFile(filepath.Join(sess.Dir(), "caption.txt"), []byte(caption), captionPerm)
 
+	if s.cfg.APIURL == "" {
+		s.deliverLocally(sess, video, cover, caption, filename)
+		return
+	}
+
 	w, h := camera.Dimensions(ctx, video)
 	req := uploader.Request{
 		VideoPath: video, CoverPath: cover, Filename: filename, Caption: caption,
@@ -511,6 +525,46 @@ func (s *Service) finalize(sess *session.Session, endState string, skipDelay boo
 	}
 	s.m.Uploads.WithLabelValues("failed").Inc()
 	_ = s.store.Park(sess, "upload-failed")
+}
+
+// deliverLocally keeps the recording instead of posting it, which is what
+// `record` is for: checking a crop or a caption should not need a chat on the
+// other end, or put a test print in one.
+func (s *Service) deliverLocally(sess *session.Session, video, cover, caption, filename string) {
+	out := s.cfg.OutputDir
+	if err := os.MkdirAll(out, outputDirPerm); err != nil {
+		s.log.Error("cannot write to the output directory; leaving the job staged",
+			"dir", out, "err", err)
+		_ = s.store.Park(sess, "output-unwritable")
+		return
+	}
+
+	dest := filepath.Join(out, filename)
+	if err := move(video, dest); err != nil {
+		s.log.Error("cannot save the video; leaving the job staged", "err", err)
+		_ = s.store.Park(sess, "output-unwritable")
+		return
+	}
+	base := strings.TrimSuffix(dest, filepath.Ext(dest))
+	if cover != "" {
+		if err := move(cover, base+"-cover.jpg"); err != nil {
+			s.log.Warn("cover not saved", "err", err)
+		}
+	}
+	// The caption alongside the video rather than inside it: it is what the
+	// posted message would have said, and reading it is how you check it.
+	if err := os.WriteFile(base+".txt", []byte(caption), captionPerm); err != nil {
+		s.log.Warn("caption not saved", "err", err)
+	}
+
+	s.log.Info("recorded", "file", dest, "frames", sess.Frames)
+	s.m.Uploads.WithLabelValues("local").Inc()
+	s.store.Discard(sess)
+
+	if s.cfg.Once && s.stop != nil {
+		s.log.Info("one print recorded; stopping")
+		s.stop()
+	}
 }
 
 // coverFrame produces the poster image: a fresh grab once the bed has dropped

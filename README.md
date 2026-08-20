@@ -198,6 +198,30 @@ every frame already taken.
 
 `bambu-timelapse debug` prints the same probe under `== toolchain ==`.
 
+## Recording without publishing
+
+```sh
+bambu-timelapse record                 # capture, then write the video here
+bambu-timelapse record -out /tmp -once # one print, then exit
+```
+
+Same capture, same encode, same overlay — the finished video, its cover and
+the caption it would have carried are written to `-out` instead of posted.
+Needs only `PRINTER_HOST`, `PRINTER_SERIAL` and `PRINTER_ACCESS_CODE`:
+checking that a crop frames the plate or that a caption reads right should not
+require a chat on the other end, or put a test print in one.
+
+`-once` ends the run after the first print, so a recording made to check
+something does not leave a daemon behind. If the output directory cannot be
+written, the job is parked in `failed/` rather than lost.
+
+## Configuring a local run
+
+`.env` is read at startup when present, which is how this runs outside the
+container — compose supplies the environment there, so a missing file is not
+an error. Copy `.env.example` to `.env` and fill in the printer; it is
+gitignored, because the access code is in it.
+
 ## Debugging
 
 ```sh
