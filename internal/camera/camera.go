@@ -27,6 +27,28 @@ const (
 	dimensionParts = 2
 )
 
+// Tools names the binaries this package runs.
+//
+// Configurable because "ffmpeg" on PATH is an assumption about the caller's
+// environment, not a fact: an IDE's run configuration, a cron job and a
+// container all have different PATHs, and the failure is a print recorded to
+// nothing.
+type Tools struct {
+	FFmpeg  string
+	FFprobe string
+}
+
+// NewTools fills in the plain names, which resolve through PATH as before.
+func NewTools(ffmpegBin, ffprobeBin string) Tools {
+	if ffmpegBin == "" {
+		ffmpegBin = "ffmpeg"
+	}
+	if ffprobeBin == "" {
+		ffprobeBin = "ffprobe"
+	}
+	return Tools{FFmpeg: ffmpegBin, FFprobe: ffprobeBin}
+}
+
 // Camera grabs stills from the printer's live view.
 //
 // One RTSPS session per frame, deliberately. The stream is 1080p MJPEG at
@@ -38,11 +60,13 @@ const (
 type Camera struct {
 	url     string
 	timeout time.Duration
+	tools   Tools
 }
 
 // New builds a Camera for the given printer.
-func New(host, accessCode string, timeout time.Duration) *Camera {
+func New(host, accessCode string, timeout time.Duration, tools Tools) *Camera {
 	return &Camera{
+		tools: tools,
 		url: fmt.Sprintf("rtsps://bblp:%s@%s/streaming/live/1",
 			url.QueryEscape(accessCode), net.JoinHostPort(host, rtspsPort)),
 		timeout: timeout,
@@ -54,7 +78,7 @@ func (c *Camera) Grab(ctx context.Context, dest string) error {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	cmd := ffmpeg(
+	cmd := c.tools.ffmpeg(
 		ctx,
 		"-hide_banner", "-loglevel", "error", "-y",
 		"-rtsp_transport", "tcp",
@@ -83,11 +107,11 @@ func (c *Camera) Grab(ctx context.Context, dest string) error {
 
 // Crop rewrites an image with the same crop applied to the video, so the cover
 // frame and the footage it introduces are framed identically.
-func Crop(ctx context.Context, src, dst, crop string) error {
+func (t Tools) Crop(ctx context.Context, src, dst, crop string) error {
 	if crop == "" {
 		return nil
 	}
-	cmd := ffmpeg(ctx,
+	cmd := t.ffmpeg(ctx,
 		"-hide_banner", "-loglevel", "error", "-y",
 		"-i", src, "-vf", "crop="+crop, "-q:v", "2", "-update", "1", dst)
 	if combined, err := cmd.CombinedOutput(); err != nil {
@@ -98,8 +122,8 @@ func Crop(ctx context.Context, src, dst, crop string) error {
 
 // Dimensions probes a video's width and height, returning zeroes when ffprobe
 // cannot tell — the media API treats 0 as "unknown" rather than an error.
-func Dimensions(ctx context.Context, path string) (width, height int) {
-	cmd := exec.CommandContext(ctx, "ffprobe", //nolint:gosec // G204: path is a file this service just encoded
+func (t Tools) Dimensions(ctx context.Context, path string) (width, height int) {
+	cmd := exec.CommandContext(ctx, t.FFprobe, //nolint:gosec // G204: the binary is operator configuration and the path is a file this service just encoded
 		"-v", "error", "-select_streams", "v:0",
 		"-show_entries", "stream=width,height", "-of", "csv=p=0:s=x", path)
 	out, err := cmd.Output()
@@ -121,8 +145,8 @@ func Dimensions(ctx context.Context, path string) (width, height int) {
 // this package passes is either operator configuration validated at startup —
 // the printer host, the access code, the crop, the font — or a path inside
 // the service's own staging tree.
-func ffmpeg(ctx context.Context, args ...string) *exec.Cmd {
-	return exec.CommandContext(ctx, "ffmpeg", args...) //nolint:gosec // see above
+func (t Tools) ffmpeg(ctx context.Context, args ...string) *exec.Cmd {
+	return exec.CommandContext(ctx, t.FFmpeg, args...) //nolint:gosec // see above
 }
 
 func truncate(s string, n int) string {

@@ -89,8 +89,10 @@ func Run(ctx context.Context, cfg *config.Config, opts Options, out io.Writer) e
 	}
 	rw.printf("printer   %s\nserial    %s\n\n", cfg.Host, cfg.Serial)
 
+	tools := camera.NewTools(cfg.FFmpegBin, cfg.FFprobeBin)
+
 	rw.println("== toolchain ==")
-	toolchain(ctx, rw)
+	toolchain(ctx, tools, rw)
 
 	rw.println("\n== ports ==")
 	for _, p := range probes {
@@ -119,7 +121,7 @@ func Run(ctx context.Context, cfg *config.Config, opts Options, out io.Writer) e
 
 	if opts.Frame != "" {
 		rw.println("\n== camera ==")
-		grabFrame(ctx, cfg, opts.Frame, rw)
+		grabFrame(ctx, cfg, tools, opts.Frame, rw)
 	}
 	return rw.err
 }
@@ -128,8 +130,8 @@ func Run(ctx context.Context, cfg *config.Config, opts Options, out io.Writer) e
 // is the same probe the service makes at startup, printed rather than logged:
 // "why is there no caption on my timelapse" is answered here or by reading
 // hours of logs.
-func toolchain(ctx context.Context, rw *report) {
-	sup := camera.Detect(ctx)
+func toolchain(ctx context.Context, tools camera.Tools, rw *report) {
+	sup := tools.Detect(ctx)
 	for _, tool := range []struct{ name, path string }{
 		{"ffmpeg", sup.FFmpeg},
 		{"ffprobe", sup.FFprobe},
@@ -266,8 +268,8 @@ func summarise(rw *report, state *telemetry.State, raw map[string]any) {
 	rw.println("\n  note: no toolhead X/Y is reported — capture cannot be gated on head position")
 }
 
-func grabFrame(ctx context.Context, cfg *config.Config, path string, rw *report) {
-	cam := camera.New(cfg.Host, cfg.AccessCode, grabTimeout)
+func grabFrame(ctx context.Context, cfg *config.Config, tools camera.Tools, path string, rw *report) {
+	cam := camera.New(cfg.Host, cfg.AccessCode, grabTimeout, tools)
 	if err := cam.Grab(ctx, path); err != nil {
 		rw.printf("  grab FAILED: %v\n", err)
 		rw.println("  (if 322 is closed, enable LAN Only Liveview on the printer)")
@@ -277,6 +279,6 @@ func grabFrame(ctx context.Context, cfg *config.Config, path string, rw *report)
 	if err != nil {
 		return
 	}
-	w, h := camera.Dimensions(ctx, path)
+	w, h := tools.Dimensions(ctx, path)
 	rw.printf("  wrote %s (%d bytes, %dx%d)\n", filepath.Clean(path), info.Size(), w, h)
 }

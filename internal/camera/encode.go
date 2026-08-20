@@ -80,7 +80,7 @@ type EncodeOptions struct {
 // cropping, captioning, and padding both ends. Cropping happens here rather
 // than at capture time so the frames on disk stay whole: a crop can then be
 // retuned and the video re-encoded without reprinting anything.
-func Encode(ctx context.Context, dir, out string, opts EncodeOptions) error {
+func (t Tools) Encode(ctx context.Context, dir, out string, opts EncodeOptions) error {
 	args := []string{
 		"-hide_banner", "-loglevel", "error", "-y",
 		"-framerate", strconv.Itoa(opts.FPS),
@@ -92,7 +92,7 @@ func Encode(ctx context.Context, dir, out string, opts EncodeOptions) error {
 	if intro {
 		// An unprobeable frame costs the intro, not the video: parking a
 		// finished print over a piece of decoration would be the worse trade.
-		if width, height = targetSize(ctx, dir, opts.Crop); width == 0 {
+		if width, height = t.targetSize(ctx, dir, opts.Crop); width == 0 {
 			intro = false
 		}
 	}
@@ -126,7 +126,7 @@ func Encode(ctx context.Context, dir, out string, opts EncodeOptions) error {
 	// own staging tree; the crop and the font are validated at startup and the
 	// caption text is sanitised by overlayText.
 	//nolint:gosec // see above
-	cmd := ffmpeg(ctx, args...)
+	cmd := t.ffmpeg(ctx, args...)
 	if combined, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("encode: %w: %s", err, truncate(string(combined), encodeErrBytes))
 	}
@@ -237,7 +237,7 @@ func overlayText(s string) string {
 
 // targetSize is the size the intro still must be scaled to: the crop when one
 // is configured, and otherwise whatever the frames themselves are.
-func targetSize(ctx context.Context, dir, crop string) (width, height int) {
+func (t Tools) targetSize(ctx context.Context, dir, crop string) (width, height int) {
 	if crop != "" {
 		parts := strings.Split(crop, ":")
 		if len(parts) < dimensionParts {
@@ -253,7 +253,7 @@ func targetSize(ctx context.Context, dir, crop string) (width, height int) {
 		}
 		return w, h
 	}
-	return Dimensions(ctx, filepath.Join(dir, firstFrame))
+	return t.Dimensions(ctx, filepath.Join(dir, firstFrame))
 }
 
 // seconds formats a duration the way ffmpeg's filters want it.

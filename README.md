@@ -89,6 +89,8 @@ the literal string `"disable"` to an `rtsps://…:322/…` URL, and port 322 ope
 | `CROP` | — | ffmpeg crop `w:h:x:y` applied to video and cover |
 | `OVERLAY` | `true` | Burn the printer, job and layer counter into the footage |
 | `OVERLAY_FONT` | — | Font to draw with; empty uses the one inside the binary |
+| `FFMPEG_BIN` | `ffmpeg` | Encoder binary; an absolute path when PATH cannot be relied on |
+| `FFPROBE_BIN` | `ffprobe` | Prober binary, same |
 | `INTRO_HOLD` | `5` | Seconds the cover is held before the timelapse |
 | `TAIL_HOLD` | `5` | Seconds the last frame is held after it |
 | `MIN_FRAMES` | `30` | Below this the job is discarded, not posted |
@@ -216,6 +218,11 @@ something does not leave a daemon behind. If the output directory cannot be
 written, the job is parked in `failed/` rather than lost.
 
 ## Configuring a local run
+
+Plain `ffmpeg`/`ffprobe` resolve through PATH, which is what the container
+relies on. An IDE run configuration, a cron entry or a unit file each have
+their own PATH, and preflight will say so at startup — `FFMPEG_BIN` and
+`FFPROBE_BIN` take an absolute path for those.
 
 `.env` is read at startup when present, which is how this runs outside the
 container — compose supplies the environment there, so a missing file is not

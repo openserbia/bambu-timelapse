@@ -177,7 +177,7 @@ func TestEncodeProducesPlayableVideo(t *testing.T) {
 	}
 
 	out := filepath.Join(dir, "out.mp4")
-	if err := Encode(t.Context(), dir, out, EncodeOptions{
+	if err := NewTools("", "").Encode(t.Context(), dir, out, EncodeOptions{
 		FPS:   10,
 		Crop:  "320:160:0:20",
 		Cover: cover,
@@ -206,7 +206,7 @@ func TestEncodeProducesPlayableVideo(t *testing.T) {
 	if secs < 8.9 || secs > 9.2 {
 		t.Fatalf("duration = %vs, want ~9s (2 intro + 4 footage + 3 tail)", secs)
 	}
-	if w, h := Dimensions(t.Context(), out); w != 320 || h != 160 {
+	if w, h := NewTools("", "").Dimensions(t.Context(), out); w != 320 || h != 160 {
 		t.Fatalf("dimensions = %dx%d, want the cropped 320x160", w, h)
 	}
 }
@@ -278,5 +278,17 @@ func TestParseFiltersMatchesWholeNames(t *testing.T) {
 		if got[unwanted] {
 			t.Errorf("%s reported from a description, not a filter name", unwanted)
 		}
+	}
+}
+
+func TestNewToolsFallsBackToPathNames(t *testing.T) {
+	if got := NewTools("", ""); got.FFmpeg != "ffmpeg" || got.FFprobe != "ffprobe" {
+		t.Fatalf("NewTools(\"\", \"\") = %+v, want the plain names", got)
+	}
+	// An absolute path is the point of the setting: PATH is an assumption
+	// about the caller's environment, not a fact.
+	got := NewTools("/opt/ffmpeg/bin/ffmpeg", "/opt/ffmpeg/bin/ffprobe")
+	if got.FFmpeg != "/opt/ffmpeg/bin/ffmpeg" || got.FFprobe != "/opt/ffmpeg/bin/ffprobe" {
+		t.Fatalf("NewTools() = %+v", got)
 	}
 }

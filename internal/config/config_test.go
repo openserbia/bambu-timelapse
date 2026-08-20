@@ -163,3 +163,30 @@ func TestOverlayFontDefaultsToTheBundledOne(t *testing.T) {
 		t.Fatalf("OverlayFont defaulted to %q; empty means the bundled font", cfg.OverlayFont)
 	}
 }
+
+func TestBinariesDefaultToPathNames(t *testing.T) {
+	setPrinterEnv(t)
+	cfg, err := LoadPrinter()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.FFmpegBin != "ffmpeg" || cfg.FFprobeBin != "ffprobe" {
+		t.Fatalf("binaries = %q/%q, want the plain names", cfg.FFmpegBin, cfg.FFprobeBin)
+	}
+}
+
+func TestBinariesCanBePinnedToAPath(t *testing.T) {
+	// An IDE run configuration, a cron entry and a unit file all have their
+	// own PATH, and the failure mode is a print recorded to nothing.
+	setPrinterEnv(t)
+	t.Setenv("FFMPEG_BIN", "/opt/ffmpeg/bin/ffmpeg")
+	t.Setenv("FFPROBE_BIN", "/opt/ffmpeg/bin/ffprobe")
+
+	cfg, err := LoadPrinter()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.FFmpegBin != "/opt/ffmpeg/bin/ffmpeg" || cfg.FFprobeBin != "/opt/ffmpeg/bin/ffprobe" {
+		t.Fatalf("binaries = %q/%q", cfg.FFmpegBin, cfg.FFprobeBin)
+	}
+}

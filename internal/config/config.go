@@ -80,6 +80,11 @@ type Config struct {
 	// default — uses the one compiled into the binary, so a caption never
 	// depends on what the host happens to have installed.
 	OverlayFont string
+	// FFmpegBin and FFprobeBin name the binaries to run. Plain names resolve
+	// through PATH; absolute paths are for the environments that have their
+	// own idea of PATH — an IDE run configuration, a cron entry, a unit file.
+	FFmpegBin  string
+	FFprobeBin string
 	// Intro holds the cover still at the head of the video and Tail holds the
 	// last captured frame at the end, so the result opens on the finished
 	// print and does not cut away the instant the print does.
@@ -172,6 +177,8 @@ func load(needSink bool) (*Config, error) {
 		Crop:           str("CROP", ""),
 		Overlay:        flag("OVERLAY", true),
 		OverlayFont:    str("OVERLAY_FONT", ""),
+		FFmpegBin:      str("FFMPEG_BIN", "ffmpeg"),
+		FFprobeBin:     str("FFPROBE_BIN", "ffprobe"),
 		Intro:          time.Duration(num("INTRO_HOLD", defaultIntroSecs)) * time.Second,
 		Tail:           time.Duration(num("TAIL_HOLD", defaultTailSecs)) * time.Second,
 		MinFrames:      num("MIN_FRAMES", defaultMinFrames),

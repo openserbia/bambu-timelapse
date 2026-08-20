@@ -53,15 +53,15 @@ func parseFilters(out string) map[string]bool {
 func (s Support) Has(filter string) bool { return s.Filters[filter] }
 
 // Detect probes the host for the binaries and filters this package uses.
-func Detect(ctx context.Context) Support {
+func (t Tools) Detect(ctx context.Context) Support {
 	sup := Support{Filters: map[string]bool{}}
-	sup.FFmpeg, _ = exec.LookPath("ffmpeg")
-	sup.FFprobe, _ = exec.LookPath("ffprobe")
+	sup.FFmpeg, _ = exec.LookPath(t.FFmpeg)
+	sup.FFprobe, _ = exec.LookPath(t.FFprobe)
 	if sup.FFmpeg == "" {
 		return sup
 	}
 
-	out, err := ffmpeg(ctx, "-hide_banner", "-filters").Output()
+	out, err := t.ffmpeg(ctx, "-hide_banner", "-filters").Output()
 	if err != nil {
 		return sup
 	}

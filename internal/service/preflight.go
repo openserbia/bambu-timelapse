@@ -35,7 +35,7 @@ type check struct {
 // preflight asks the host, once, for everything the service will need hours
 // from now, and says plainly what it found.
 func (s *Service) preflight(ctx context.Context) error {
-	sup := camera.Detect(ctx)
+	sup := s.tools.Detect(ctx)
 	writable, writeErr := s.stagingWritable()
 
 	free, freeErr := freeBytes(s.store.Root())
@@ -43,15 +43,17 @@ func (s *Service) preflight(ctx context.Context) error {
 
 	checks := []check{
 		{
-			name:   "ffmpeg",
-			detail: found(sup.FFmpeg, "not on PATH; no frame can be grabbed or encoded"),
-			ok:     sup.FFmpeg != "",
-			fatal:  true,
+			name: "ffmpeg",
+			detail: found(sup.FFmpeg, fmt.Sprintf(
+				"%q not found; no frame can be grabbed or encoded (set FFMPEG_BIN)", s.cfg.FFmpegBin)),
+			ok:    sup.FFmpeg != "",
+			fatal: true,
 		},
 		{
-			name:   "ffprobe",
-			detail: found(sup.FFprobe, "not on PATH; the posted video will carry no dimensions"),
-			ok:     sup.FFprobe != "",
+			name: "ffprobe",
+			detail: found(sup.FFprobe, fmt.Sprintf(
+				"%q not found; the video will carry no dimensions (set FFPROBE_BIN)", s.cfg.FFprobeBin)),
+			ok: sup.FFprobe != "",
 		},
 		{
 			name:   "staging",

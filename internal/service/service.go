@@ -61,6 +61,7 @@ type Service struct {
 	state *telemetry.State
 	store *session.Store
 	cam   *camera.Camera
+	tools camera.Tools
 	up    *uploader.Uploader
 	m     *Metrics
 
@@ -91,12 +92,14 @@ func New(cfg *config.Config, log *slog.Logger) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("staging: %w", err)
 	}
+	tools := camera.NewTools(cfg.FFmpegBin, cfg.FFprobeBin)
 	svc := &Service{
 		cfg:   cfg,
+		tools: tools,
 		log:   log,
 		state: telemetry.NewState(),
 		store: store,
-		cam:   camera.New(cfg.Host, cfg.AccessCode, cfg.CaptureTimeout),
+		cam:   camera.New(cfg.Host, cfg.AccessCode, cfg.CaptureTimeout, tools),
 		up:    uploader.New(cfg.APIURL, cfg.APIToken, cfg.APIFields),
 		m:     NewMetrics(),
 	}
@@ -287,7 +290,7 @@ func (s *Service) retryParked(ctx context.Context) {
 		if _, err := os.Stat(cover); err != nil {
 			cover = ""
 		}
-		w, h := camera.Dimensions(ctx, video)
+		w, h := s.tools.Dimensions(ctx, video)
 		req := uploader.Request{
 			VideoPath: video, CoverPath: cover,
 			Filename: filepath.Base(video),
@@ -494,7 +497,7 @@ func (s *Service) finalize(sess *session.Session, endState string, skipDelay boo
 		return
 	}
 
-	w, h := camera.Dimensions(ctx, video)
+	w, h := s.tools.Dimensions(ctx, video)
 	req := uploader.Request{
 		VideoPath: video, CoverPath: cover, Filename: filename, Caption: caption,
 		Duration: s.duration(sess, cover), Width: w, Height: h,
@@ -597,7 +600,7 @@ func (s *Service) coverFrame(ctx context.Context, sess *session.Session, skipDel
 	}
 
 	cropped := filepath.Join(sess.Dir(), "cover-cropped.jpg")
-	if err := camera.Crop(ctx, cover, cropped, s.cfg.Crop); err != nil {
+	if err := s.tools.Crop(ctx, cover, cropped, s.cfg.Crop); err != nil {
 		// A mismatched cover is cosmetic; a missing video is not.
 		s.log.Warn("cover crop failed; using the uncropped frame", "err", err)
 		return cover
@@ -629,13 +632,13 @@ func (s *Service) encode(ctx context.Context, sess *session.Session, video, cove
 		Tail:    s.cfg.Tail,
 		Overlay: s.overlay(sess),
 	}
-	err := camera.Encode(ctx, sess.Dir(), video, opts)
+	err := s.tools.Encode(ctx, sess.Dir(), video, opts)
 	if err == nil || opts.Overlay == nil {
 		return err
 	}
 	s.log.Error("encode failed; retrying without the caption", "err", err)
 	opts.Overlay = nil
-	return camera.Encode(ctx, sess.Dir(), video, opts)
+	return s.tools.Encode(ctx, sess.Dir(), video, opts)
 }
 
 // overlay builds the caption burned into the footage: a fixed title line and,
