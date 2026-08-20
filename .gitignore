@@ -7,3 +7,6 @@
 
 # Real credentials; .env.example is the tracked one.
 .env
+
+# IDE project files.
+/.idea/
