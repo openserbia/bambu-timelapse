@@ -72,6 +72,18 @@ tasks:
     cmds:
       - go run ./cmd/bambu-timelapse debug {{.CLI_ARGS}}
 
+  record:
+    desc: Capture locally instead of posting (task record -- -interval 2s -frames 8)
+    # Writes into build/, which is already gitignored, so a test recording
+    # never turns up in a commit. Everything else is the command's own flags:
+    # -interval for a timed capture that needs no print, -once to stop after
+    # the first one.
+    cmds:
+      - mkdir -p {{.BUILD_PATH}}/recordings
+      - go run ./cmd/bambu-timelapse record
+          -out {{.BUILD_PATH}}/recordings
+          -staging {{.BUILD_PATH}}/recordings/staging {{.CLI_ARGS}}
+
   ci:
     desc: What CI runs
     cmds:

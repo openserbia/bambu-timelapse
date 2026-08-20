@@ -221,6 +221,7 @@ written, the job is parked in `failed/` rather than lost.
 
 ```sh
 bambu-timelapse record -interval 2s -frames 8 -out /tmp
+devbox run -- task record -- -interval 2s -frames 8   # the same, from a checkout
 ```
 
 Captures on a clock instead of on layer changes, which needs no print and no
@@ -290,3 +291,15 @@ git tag v0.1.0 && git push origin v0.1.0
 devbox run -- task ci     # lint, test, build
 devbox run -- task test
 ```
+
+Two tasks drive the binary against the real printer, both reading `.env`:
+
+```sh
+devbox run -- task debug                            # the diagnostic snapshot
+devbox run -- task debug  -- -raw                   # its flags go after --
+devbox run -- task record -- -interval 2s -frames 8 # a video without a print
+devbox run -- task record                           # wait for the next print
+```
+
+`record` writes into `build/recordings/`, which is already gitignored, so a
+test capture never turns up in a commit.
