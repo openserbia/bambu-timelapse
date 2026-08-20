@@ -164,6 +164,32 @@ off for the run; and an encode that fails *with* a caption is retried without
 it, because the footage is a print that took hours and the caption is
 decoration. `OVERLAY=false` skips the whole thing.
 
+## Preflight
+
+The service asks the host what it can do before it captures anything, and
+says so:
+
+```
+INFO preflight check=ffmpeg   ok=true  detail=/usr/bin/ffmpeg
+WARN preflight check=ffprobe  ok=false detail="not on PATH; the posted video will carry no dimensions"
+INFO preflight check=staging  ok=true  detail=/staging
+INFO preflight check=overlay  ok=true  detail=/staging/overlay-font.ttf
+```
+
+Only what makes the service pointless is fatal — no ffmpeg, or a staging tree
+it cannot write to. Everything else degrades and names what was lost: an
+ffmpeg built without libfreetype turns captions off rather than failing the
+encode, a build without `tpad` or `concat` drops the held ends, a missing
+ffprobe costs the dimensions and the intro.
+
+The distinction is the point. A print runs for hours and cannot be repeated,
+so refusing to start has to be reserved for the cases where starting would
+capture nothing anyway — and every other shortfall has to be visible at boot
+rather than discovered at the encode, which happens once, at the end, with
+every frame already taken.
+
+`bambu-timelapse debug` prints the same probe under `== toolchain ==`.
+
 ## Debugging
 
 ```sh

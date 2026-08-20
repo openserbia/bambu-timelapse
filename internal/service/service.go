@@ -126,6 +126,12 @@ func (s *Service) resolveFont() string {
 func (s *Service) Run(ctx context.Context) error {
 	s.shutdownCtx = ctx
 
+	// Before anything is captured: a print runs for hours, and finding out at
+	// the encode that ffmpeg was never installed wastes all of them.
+	if err := s.preflight(ctx); err != nil {
+		return err
+	}
+
 	if n := s.store.SweepFailed(s.cfg.FailedTTL); n > 0 {
 		s.log.Info("swept expired failed jobs", "count", n)
 	}

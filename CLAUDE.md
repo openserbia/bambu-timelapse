@@ -61,6 +61,10 @@ import each other.
 - **The uploader knows nothing about its consumer.** Extra form fields come
   from `MEDIA_API_FIELDS` verbatim. Do not add Telegram-specific (or any
   destination-specific) logic here — that was deliberately removed.
+- **External dependencies are probed at startup, not at use.** `preflight`
+  runs before the first capture; only a missing ffmpeg or an unwritable
+  staging tree is fatal, everything else degrades loudly. Adding a new
+  dependency on the host means adding a check there.
 - **The overlay is never load-bearing.** The font is bundled into the binary,
   an unreadable one falls back rather than failing, and an encode that fails
   with a caption is retried without one. A print takes hours and cannot be

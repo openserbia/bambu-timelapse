@@ -89,7 +89,10 @@ func Run(ctx context.Context, cfg *config.Config, opts Options, out io.Writer) e
 	}
 	rw.printf("printer   %s\nserial    %s\n\n", cfg.Host, cfg.Serial)
 
-	rw.println("== ports ==")
+	rw.println("== toolchain ==")
+	toolchain(ctx, rw)
+
+	rw.println("\n== ports ==")
 	for _, p := range probes {
 		status := "open"
 		dialer := &net.Dialer{Timeout: dialTimeout}
@@ -119,6 +122,34 @@ func Run(ctx context.Context, cfg *config.Config, opts Options, out io.Writer) e
 		grabFrame(ctx, cfg, opts.Frame, rw)
 	}
 	return rw.err
+}
+
+// toolchain reports what the host gives ffmpeg-dependent work to run on. It
+// is the same probe the service makes at startup, printed rather than logged:
+// "why is there no caption on my timelapse" is answered here or by reading
+// hours of logs.
+func toolchain(ctx context.Context, rw *report) {
+	sup := camera.Detect(ctx)
+	for _, tool := range []struct{ name, path string }{
+		{"ffmpeg", sup.FFmpeg},
+		{"ffprobe", sup.FFprobe},
+	} {
+		if tool.path == "" {
+			rw.printf("  %-9s MISSING\n", tool.name)
+			continue
+		}
+		rw.printf("  %-9s %s\n", tool.name, tool.path)
+	}
+	for _, filter := range []string{
+		camera.FilterDrawtext, camera.FilterSendcmd,
+		camera.FilterTpad, camera.FilterConcat,
+	} {
+		status := "MISSING"
+		if sup.Has(filter) {
+			status = "ok"
+		}
+		rw.printf("  %-9s %s\n", filter, status)
+	}
 }
 
 func snapshot(ctx context.Context, cfg *config.Config, wait time.Duration) (*telemetry.State, error) {
@@ -152,8 +183,15 @@ func snapshot(ctx context.Context, cfg *config.Config, wait time.Duration) (*tel
 
 	client := mqtt.NewClient(opts)
 	token := client.Connect()
-	if !token.WaitTimeout(connectWait) || token.Error() != nil {
-		return nil, fmt.Errorf("mqtt connect: %w", token.Error())
+	if !token.WaitTimeout(connectWait) {
+		// A timeout leaves the token with no error to wrap, which printed as
+		// "mqtt connect: %!w(<nil>)" — the least useful line in a tool whose
+		// whole job is telling you why the printer is unreachable.
+		return nil, fmt.Errorf("mqtt connect: no answer from %s within %s",
+			cfg.Host, connectWait)
+	}
+	if err := token.Error(); err != nil {
+		return nil, fmt.Errorf("mqtt connect: %w", err)
 	}
 	defer client.Disconnect(disconnectGraceMS)
 

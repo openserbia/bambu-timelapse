@@ -27,6 +27,17 @@ func insecureTLS() *tls.Config {
 	return &tls.Config{InsecureSkipVerify: true} //nolint:gosec // see above
 }
 
+// stagingWritable proves the staging tree can be written to, rather than
+// assuming it: a read-only mount or a container running as the wrong user
+// both look fine until the first frame lands.
+func (s *Service) stagingWritable() (bool, error) {
+	probe := filepath.Join(s.store.Root(), probeFile)
+	if err := os.WriteFile(probe, []byte("ok"), captionPerm); err != nil {
+		return false, err
+	}
+	return true, os.Remove(probe)
+}
+
 // freeBytes reports free space on the filesystem holding path.
 func freeBytes(path string) (uint64, error) {
 	var st syscall.Statfs_t

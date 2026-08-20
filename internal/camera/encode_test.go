@@ -258,3 +258,25 @@ func TestBundledFontIsWrittenOnceAndReused(t *testing.T) {
 		t.Fatal("font rewritten on a second call; it should be reused")
 	}
 }
+
+func TestParseFiltersMatchesWholeNames(t *testing.T) {
+	// The name is a field, not a substring: "concat" appears in other
+	// filters' descriptions, and reading it there would report a build as
+	// able to do something it cannot.
+	out := ` T. drawtext          V->V       Draw text on top of video frames using libfreetype library.
+ .. tpad               V->V       Temporarily pad video frames.
+ .. interleave         V->V       Temporally interleave video inputs, like concat does.
+ ... acrossfade        A->A       Cross fade two input audio streams.
+`
+	got := parseFilters(out)
+	for _, want := range []string{FilterDrawtext, FilterTpad} {
+		if !got[want] {
+			t.Errorf("%s not detected in:\n%s", want, out)
+		}
+	}
+	for _, unwanted := range []string{FilterConcat, FilterSendcmd} {
+		if got[unwanted] {
+			t.Errorf("%s reported from a description, not a filter name", unwanted)
+		}
+	}
+}
