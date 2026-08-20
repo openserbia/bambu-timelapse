@@ -1,4 +1,4 @@
-name: Build and publish
+name: Build
 
 on:
   push:
@@ -21,49 +21,31 @@ jobs:
       - name: Lint, test, build
         run: devbox run -- task ci
 
-  publish:
+  image:
     needs: ci
     if: github.event_name == 'push'
+    # Builds the image ON the host that runs it and tags it locally. No
+    # registry: ghcr is off for now, so the image never leaves this machine —
+    # the same arrangement media-puller uses on this Pi. Compose references
+    # bambu-timelapse:latest with pull_policy:never.
     runs-on: [self-hosted, rpi]
-    permissions:
-      contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v5
 
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build the local image
+        run: docker build -t bambu-timelapse:latest .
 
-      # :latest tracks main for Watchtower. A tagged build additionally
-      # publishes its version, which is what a rollback pins to — the commit
-      # SHA is already recorded in the image's own labels, so tagging by it
-      # would just be a second name for the same thing.
-      - id: tags
+      # Watchtower on the Pi watches for local image changes and recreates the
+      # container, so a rebuilt tag is all a deploy needs. Guarded so a first
+      # run, before the service is ever deployed, is not a failure.
+      - name: Report
         run: |
-          tags="ghcr.io/openserbia/bambu-timelapse:latest"
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            tags="${tags}
-          ghcr.io/openserbia/bambu-timelapse:${GITHUB_REF_NAME#v}"
-          fi
-          {
-            echo "list<<EOF"
-            echo "${tags}"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.tags.outputs.list }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          docker image inspect bambu-timelapse:latest \
+            --format 'built {{.Id}} ({{.Size}} bytes)'
+          docker ps --filter name=bambu-timelapse --format '{{.Names}} {{.Status}}' || true
 
   release:
-    needs: publish
+    needs: ci
     if: github.ref_type == 'tag'
     runs-on: [self-hosted, rpi]
     permissions:
@@ -74,6 +56,8 @@ jobs:
       - name: Build release archives
         run: devbox run -- task dist VERSION=${GITHUB_REF_NAME#v}
 
+      # Binaries only while ghcr is disabled; the versioned image tag comes
+      # back with the registry.
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

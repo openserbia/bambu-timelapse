@@ -116,10 +116,13 @@ is 1 means the camera is failing even though the printer is fine.
 
 ## Releases
 
-Pushing a `v*` tag builds the release: cross-compiled `linux/amd64` and
-`linux/arm64` archives with a `SHA256SUMS`, attached to a GitHub Release, plus
-a `ghcr.io/openserbia/bambu-timelapse` image tagged with the version. `:latest`
-tracks `main` and is what Watchtower follows.
+Pushing a `v*` tag cuts a release: cross-compiled `linux/amd64` and
+`linux/arm64` archives with a `SHA256SUMS`, attached to a GitHub Release.
+
+The container image is **not published to a registry**. CI builds it on the
+rpi runner and tags it `bambu-timelapse:latest` locally, where the service
+runs; Watchtower recreates the container when that tag moves. Compose
+therefore uses `pull_policy: never`.
 
 ```sh
 git tag v0.1.0 && git push origin v0.1.0
