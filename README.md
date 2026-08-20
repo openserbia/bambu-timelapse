@@ -51,6 +51,14 @@ Job identity is `task_id`, falling back to `lan_task_id`: a cloud-dispatched
 print populates the first and zeroes the second, a LAN-dispatched print does
 the reverse. Reading only one silently breaks resume for half of all prints.
 
+Reports are deltas, so the merged view outlives the job it describes. When the
+task id changes, the job-scoped fields — `layer_num`, `total_layer_num`,
+`mc_percent`, the title — are dropped rather than carried over. Without that,
+a 13-layer print following a 60-layer one inherits layer 60, no layer ever
+looks new, and the print is captured exactly once. Device-scoped fields
+(temperatures, the AMS, the camera) survive: the printer sends those rarely
+and dropping them would blind the service until the next full snapshot.
+
 A capture that begins after layer 1 sets `partial`, and the caption says so —
 reporting elapsed-since-we-started as the print duration would be a claim the
 video itself contradicts.

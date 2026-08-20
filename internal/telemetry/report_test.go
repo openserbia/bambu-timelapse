@@ -80,3 +80,57 @@ func TestFilamentDeduplicates(t *testing.T) {
 		t.Fatalf("Filament() = %q, want %q", got, want)
 	}
 }
+
+func TestNewJobForgetsThePreviousJobsLayers(t *testing.T) {
+	// The failure this prevents: a 60-layer print leaves layer_num 60 in the
+	// merged view, the next print has 13 layers, every "has the layer
+	// advanced" test fails for its whole duration, and the job is captured
+	// once and discarded for having too few frames.
+	state := NewState()
+	state.Merge([]byte(`{"print":{"task_id":"111","layer_num":60,"total_layer_num":60,"subtask_name":"tall","nozzle_temper":220.0}}`))
+
+	state.Merge([]byte(`{"print":{"task_id":"222","gcode_state":"RUNNING"}}`))
+
+	if got := state.Layer(); got != 0 {
+		t.Errorf("layer_num = %d after a new job started; want it forgotten", got)
+	}
+	if got := state.TotalLayers(); got != 0 {
+		t.Errorf("total_layer_num = %d after a new job started", got)
+	}
+	if got := state.JobName(); got != "" {
+		t.Errorf("subtask_name = %q after a new job started", got)
+	}
+	// Device-scoped fields are not the job's to invalidate: the printer sends
+	// them rarely, and dropping them blinds the service until a full snapshot.
+	if got := state.Nozzle(); got != 220.0 {
+		t.Errorf("nozzle_temper = %v; device state should survive a job change", got)
+	}
+}
+
+func TestDeltasWithinAJobStillMerge(t *testing.T) {
+	state := NewState()
+	state.Merge([]byte(`{"print":{"task_id":"111","layer_num":10,"total_layer_num":60}}`))
+	state.Merge([]byte(`{"print":{"layer_num":11}}`))
+
+	if got := state.Layer(); got != 11 {
+		t.Errorf("layer_num = %d, want the delta applied", got)
+	}
+	if got := state.TotalLayers(); got != 60 {
+		t.Errorf("total_layer_num = %d; a delta must not wipe it", got)
+	}
+}
+
+func TestLanJobFollowingACloudJobIsANewJob(t *testing.T) {
+	// The ids swap places between dispatch methods, which must still read as
+	// "a different print", not as one job losing its identity.
+	state := NewState()
+	state.Merge([]byte(`{"print":{"task_id":"111","lan_task_id":"0","layer_num":60}}`))
+	state.Merge([]byte(`{"print":{"task_id":"0","lan_task_id":"777"}}`))
+
+	if got := state.Layer(); got != 0 {
+		t.Errorf("layer_num = %d; a LAN print after a cloud print is a new job", got)
+	}
+	if got := state.TaskID(); got != "777" {
+		t.Errorf("TaskID() = %q, want the LAN id", got)
+	}
+}

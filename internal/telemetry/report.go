@@ -33,6 +33,21 @@ const (
 	maxFilaments = 4
 )
 
+// jobScoped are the fields that describe the job being printed rather than
+// the printer printing it. They are dropped the moment the task id changes,
+// because merging deltas means they otherwise survive into the next print:
+// a 13-layer job following a 60-layer one inherits layer_num 60, every
+// "has the layer advanced" test fails for its whole duration, and the print
+// is captured exactly once.
+var jobScoped = []string{
+	"layer_num",
+	"total_layer_num",
+	"mc_percent",
+	"mc_remaining_time",
+	"subtask_name",
+	"gcode_file",
+}
+
 // State is the merged view of everything the printer has reported.
 type State struct {
 	fields map[string]any
@@ -58,10 +73,29 @@ func (s *State) Merge(payload []byte) bool {
 	if err := json.Unmarshal(raw, &section); err != nil {
 		return false
 	}
+	s.forgetPreviousJob(section)
 	for k, v := range section {
 		s.fields[k] = v
 	}
 	return true
+}
+
+// forgetPreviousJob clears the outgoing job's fields when a report announces
+// a new one. Device-scoped fields — temperatures, the AMS, the camera — are
+// left alone: the printer sends those rarely, and dropping the whole view
+// would blind the service until the next full snapshot.
+func (s *State) forgetPreviousJob(section map[string]any) {
+	current := s.TaskID()
+	if current == "" {
+		return
+	}
+	incoming := (&State{fields: section}).TaskID()
+	if incoming == "" || incoming == current {
+		return
+	}
+	for _, key := range jobScoped {
+		delete(s.fields, key)
+	}
 }
 
 // Fields exposes the merged report. Read-only by convention; the debug dump

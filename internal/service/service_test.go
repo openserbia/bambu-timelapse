@@ -222,3 +222,23 @@ func TestDurationCountsBothHelds(t *testing.T) {
 		t.Fatalf("duration without a cover = %ds, want 15", got)
 	}
 }
+
+func TestChangedLayer(t *testing.T) {
+	cases := []struct {
+		layer, last int
+		want        bool
+	}{
+		{layer: 1, last: -1, want: true},  // the first layer of a fresh session
+		{layer: 12, last: 11, want: true}, // the ordinary case
+		{layer: 11, last: 11, want: false},
+		// A lower number belongs to a different print. Requiring an increase
+		// here is what let a 60-layer job's stale count silence a 13-layer one.
+		{layer: 3, last: 60, want: true},
+		{layer: 0, last: 60, want: false}, // no layer reported yet
+	}
+	for _, c := range cases {
+		if got := changedLayer(c.layer, c.last); got != c.want {
+			t.Errorf("changedLayer(%d, %d) = %v, want %v", c.layer, c.last, got, c.want)
+		}
+	}
+}

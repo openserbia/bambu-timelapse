@@ -47,7 +47,9 @@ import each other.
 
 - **Reports are deltas, not snapshots.** `telemetry.State` merges into a map.
   Assigning a decoded struct would wipe `gcode_state` every time the printer
-  sends `{"layer_num": N}` alone.
+  sends `{"layer_num": N}` alone. The flip side: job-scoped fields must be
+  dropped when `task_id` changes, or the previous print's layer count silences
+  the next one (`telemetry.jobScoped`).
 - **Job identity is `task_id`, falling back to `lan_task_id`.** Cloud prints
   populate one and zero the other; LAN prints do the reverse. Reading only one
   breaks resume for half of all prints.

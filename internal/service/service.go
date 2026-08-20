@@ -303,6 +303,18 @@ func (s *Service) handle() {
 
 	switch st {
 	case telemetry.StateRunning:
+		if cur != nil && cur.TaskID != s.state.TaskID() && s.state.TaskID() != "" {
+			// A new print without a state we ever saw end: the printer went
+			// straight from one job to the next. Post what the old one got
+			// rather than let the new one's frames land in its directory.
+			s.log.Info("a new job started while one was open",
+				"was", cur.TaskID, "now", s.state.TaskID(), "frames", cur.Frames)
+			s.mu.Lock()
+			s.current = nil
+			s.mu.Unlock()
+			s.startFinalize(cur, telemetry.StateFinish, true)
+			cur = nil
+		}
 		if cur == nil {
 			cur = s.begin()
 			if cur == nil {
@@ -312,7 +324,7 @@ func (s *Service) handle() {
 		s.mu.Lock()
 		s.record(cur)
 		layer := s.state.Layer()
-		newLayer := layer > cur.LastLayer
+		newLayer := changedLayer(layer, cur.LastLayer)
 		if newLayer {
 			cur.LastLayer = layer
 			_ = cur.Save()
@@ -333,6 +345,16 @@ func (s *Service) handle() {
 		s.mu.Unlock()
 		s.startFinalize(cur, st, false)
 	}
+}
+
+// changedLayer decides whether this report is worth a frame.
+//
+// Any change counts, not just an increase. Layer numbers only climb within a
+// job, so a lower one means the number belongs to a different print — and
+// requiring an increase there is what let one job's stale count lock out the
+// whole of the next one.
+func changedLayer(layer, last int) bool {
+	return layer != last && layer > 0
 }
 
 func (s *Service) begin() *session.Session {
