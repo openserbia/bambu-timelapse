@@ -22,6 +22,8 @@ const (
 	defaultCaptureDelay   = 0
 	defaultMinFreeMB      = 2048
 	defaultFailedTTLDays  = 7
+	defaultIntroSecs      = 5
+	defaultTailSecs       = 5
 
 	mib = 1024 * 1024
 )
@@ -58,7 +60,22 @@ type Config struct {
 	// the cover. Empty leaves the frame whole. The gantry occupies a fixed
 	// band at the top, so cropping it away is the cheapest way to remove the
 	// toolhead entirely — at the cost of the top of tall prints.
-	Crop           string
+	Crop string
+	// Overlay burns the printer name, the job and a live layer counter into
+	// the footage. The counter is driven by the layer each frame was actually
+	// captured on, not by the frame index: a skipped grab leaves no frame, so
+	// counting frames would drift a little further from the truth with every
+	// layer the camera missed.
+	Overlay bool
+	// OverlayFont is an optional path to a font to draw with. Empty — the
+	// default — uses the one compiled into the binary, so a caption never
+	// depends on what the host happens to have installed.
+	OverlayFont string
+	// Intro holds the cover still at the head of the video and Tail holds the
+	// last captured frame at the end, so the result opens on the finished
+	// print and does not cut away the instant the print does.
+	Intro          time.Duration
+	Tail           time.Duration
 	MinFrames      int
 	FinalDelay     time.Duration
 	CaptureTimeout time.Duration
@@ -107,6 +124,18 @@ func load(needSink bool) (*Config, error) {
 		}
 		return strings.TrimSpace(os.Getenv(key))
 	}
+	flag := func(key string, def bool) bool {
+		raw := strings.TrimSpace(os.Getenv(key))
+		if raw == "" {
+			return def
+		}
+		v, err := strconv.ParseBool(raw)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %q is not true or false", key, raw))
+			return def
+		}
+		return v
+	}
 	str := func(key, def string) string {
 		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 			return v
@@ -125,6 +154,10 @@ func load(needSink bool) (*Config, error) {
 		FPS:            num("TIMELAPSE_FPS", defaultFPS),
 		CaptureDelay:   time.Duration(num("CAPTURE_DELAY", defaultCaptureDelay)) * time.Second,
 		Crop:           str("CROP", ""),
+		Overlay:        flag("OVERLAY", true),
+		OverlayFont:    str("OVERLAY_FONT", ""),
+		Intro:          time.Duration(num("INTRO_HOLD", defaultIntroSecs)) * time.Second,
+		Tail:           time.Duration(num("TAIL_HOLD", defaultTailSecs)) * time.Second,
 		MinFrames:      num("MIN_FRAMES", defaultMinFrames),
 		FinalDelay:     time.Duration(num("FINAL_FRAME_DELAY", defaultFinalDelaySecs)) * time.Second,
 		CaptureTimeout: time.Duration(num("CAPTURE_TIMEOUT", defaultCaptureSecs)) * time.Second,
@@ -133,6 +166,14 @@ func load(needSink bool) (*Config, error) {
 		ListenAddr:     str("LISTEN_ADDR", ":8092"),
 	}
 
+	return cfg, errors.Join(append(errs, validate(cfg)...)...)
+}
+
+// validate is separate from reading so that parsing an environment and
+// judging it stay one concern each: everything here is a rule about the
+// resolved configuration, not about how it was spelled.
+func validate(cfg *Config) []error {
+	var errs []error
 	if raw := strings.TrimSpace(os.Getenv("MEDIA_API_FIELDS")); raw != "" {
 		if err := json.Unmarshal([]byte(raw), &cfg.APIFields); err != nil {
 			errs = append(errs, fmt.Errorf("MEDIA_API_FIELDS: not a JSON object of strings: %w", err))
@@ -144,13 +185,16 @@ func load(needSink bool) (*Config, error) {
 	if cfg.CaptureDelay < 0 {
 		errs = append(errs, errors.New("CAPTURE_DELAY must not be negative"))
 	}
+	if cfg.Intro < 0 || cfg.Tail < 0 {
+		errs = append(errs, errors.New("INTRO_HOLD and TAIL_HOLD must not be negative"))
+	}
 	// Validate the crop HERE rather than letting ffmpeg reject it: the encode
 	// runs once, at the end of a print, so a typo would otherwise surface
 	// hours later with every frame already captured and nothing to show.
 	if cfg.Crop != "" && !cropSpec.MatchString(cfg.Crop) {
 		errs = append(errs, fmt.Errorf("CROP: %q is not w:h:x:y (e.g. 1920:820:0:260)", cfg.Crop))
 	}
-	return cfg, errors.Join(errs...)
+	return errs
 }
 
 // cropSpec matches ffmpeg's numeric crop form. Expressions are legal to

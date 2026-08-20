@@ -79,6 +79,10 @@ the literal string `"disable"` to an `rtsps://…:322/…` URL, and port 322 ope
 | `TIMELAPSE_FPS` | `20` | Playback rate |
 | `CAPTURE_DELAY` | `0` | Seconds to wait after a layer change before grabbing |
 | `CROP` | — | ffmpeg crop `w:h:x:y` applied to video and cover |
+| `OVERLAY` | `true` | Burn the printer, job and layer counter into the footage |
+| `OVERLAY_FONT` | — | Font to draw with; empty uses the one inside the binary |
+| `INTRO_HOLD` | `5` | Seconds the cover is held before the timelapse |
+| `TAIL_HOLD` | `5` | Seconds the last frame is held after it |
 | `MIN_FRAMES` | `30` | Below this the job is discarded, not posted |
 | `FINAL_FRAME_DELAY` | `45` | Seconds to wait before the cover shot |
 | `MIN_FREE_MB` | `2048` | Refuse to capture below this |
@@ -123,6 +127,42 @@ time, not capture time, so the frames on disk stay whole and a crop can be
 retuned without reprinting. The cover is cropped to match. Validated at
 startup, because the encode runs once at the *end* of a print and a typo would
 otherwise surface with every frame captured and nothing to show.
+
+### The overlay and the held ends
+
+The video opens on the cover — the finished print — held for `INTRO_HOLD`,
+then runs the footage, then holds the final captured frame for `TAIL_HOLD`.
+Both are padding at encode time; neither costs a frame or a capture.
+
+Burned into the footage are two lines, bottom left: the printer alias and job
+name, and under it the layer. The counter is driven by the layer each frame
+was *captured* on, recorded in `state.json` alongside the frame count, not by
+the frame's position in the sequence — a grab skipped because the previous one
+was still running leaves no frame, so counting frames would drift a little
+further from the truth with every layer the camera missed. A job resumed from
+a state file written before that list existed gets the title line only rather
+than a counter that is merely plausible.
+
+The layer text is delivered to ffmpeg as a `sendcmd` script written next to
+the frames (`overlay.cmds`), which means a parked job can be re-encoded by
+hand with exactly the overlay it would have had. Text taken from the printer
+is stripped of anything the filtergraph, the filter option list or drawtext's
+own `%{}` expansion would read as syntax: a caption is decoration, and a
+filtergraph that fails to parse loses the whole video.
+
+The font travels inside the binary (Go Regular — Latin, Latin Extended,
+Greek, Cyrillic), materialised into the staging root at startup. Captioning
+therefore depends on nothing the host has installed, which is the point: the
+first version of this took the font from a distribution package, and a binary
+run anywhere that package was not — the release tarball, a dev machine, a
+container recreated from an older image — refused to boot over a caption.
+
+Nothing about the overlay is fatal now. `OVERLAY_FONT` points at a different
+font if you want one and falls back to the bundled one when it cannot be
+read; a font that cannot be written at all logs a warning and turns captions
+off for the run; and an encode that fails *with* a caption is retried without
+it, because the footage is a print that took hours and the caption is
+decoration. `OVERLAY=false` skips the whole thing.
 
 ## Debugging
 

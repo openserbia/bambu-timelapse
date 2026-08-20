@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -55,12 +54,8 @@ func (c *Camera) Grab(ctx context.Context, dest string) error {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	// G204: every argument is operator configuration read from the environment
-	// at startup, not user input. The URL is assembled from the configured
-	// host and access code; nothing here crosses a trust boundary.
-	//nolint:gosec // see above
-	cmd := exec.CommandContext(
-		ctx, "ffmpeg",
+	cmd := ffmpeg(
+		ctx,
 		"-hide_banner", "-loglevel", "error", "-y",
 		"-rtsp_transport", "tcp",
 		// The printer presents a self-signed certificate for its own LAN IP.
@@ -86,49 +81,13 @@ func (c *Camera) Grab(ctx context.Context, dest string) error {
 	return nil
 }
 
-// Encode muxes the numbered frames in dir into an H.264 mp4, optionally
-// cropping. Cropping happens here rather than at capture time so the frames on
-// disk stay whole: a crop can then be retuned and the video re-encoded without
-// reprinting anything.
-func Encode(ctx context.Context, dir, out string, fps int, crop string) error {
-	// G204: dir and out are paths this service created inside its own staging
-	// tree.
-	//nolint:gosec // see above
-	cmd := exec.CommandContext(
-		ctx, "ffmpeg",
-		"-hide_banner", "-loglevel", "error", "-y",
-		"-framerate", strconv.Itoa(fps),
-		"-i", filepath.Join(dir, "frame-%05d.jpg"),
-	)
-	if crop != "" {
-		cmd.Args = append(cmd.Args, "-vf", "crop="+crop)
-	}
-	cmd.Args = append(
-		cmd.Args,
-		"-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-		// yuv420p for player compatibility. +faststart moves the moov atom to
-		// the front, which is what lets Telegram render an inline player with
-		// a poster frame instead of a grey file row.
-		"-pix_fmt", "yuv420p", "-movflags", "+faststart",
-		out,
-	)
-	if combined, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("encode: %w: %s", err, truncate(string(combined), encodeErrBytes))
-	}
-	info, err := os.Stat(out)
-	if err != nil || info.Size() == 0 {
-		return errors.New("encode produced no file")
-	}
-	return nil
-}
-
 // Crop rewrites an image with the same crop applied to the video, so the cover
 // frame and the footage it introduces are framed identically.
 func Crop(ctx context.Context, src, dst, crop string) error {
 	if crop == "" {
 		return nil
 	}
-	cmd := exec.CommandContext(ctx, "ffmpeg", //nolint:gosec // G204: paths are this service's own; crop is validated at startup
+	cmd := ffmpeg(ctx,
 		"-hide_banner", "-loglevel", "error", "-y",
 		"-i", src, "-vf", "crop="+crop, "-q:v", "2", "-update", "1", dst)
 	if combined, err := cmd.CombinedOutput(); err != nil {
@@ -154,6 +113,16 @@ func Dimensions(ctx context.Context, path string) (width, height int) {
 	w, _ := strconv.Atoi(parts[0])
 	h, _ := strconv.Atoi(parts[1])
 	return w, h
+}
+
+// ffmpeg builds an invocation of the encoder.
+//
+// The G204 waiver lives here rather than at every call site: every argument
+// this package passes is either operator configuration validated at startup —
+// the printer host, the access code, the crop, the font — or a path inside
+// the service's own staging tree.
+func ffmpeg(ctx context.Context, args ...string) *exec.Cmd {
+	return exec.CommandContext(ctx, "ffmpeg", args...) //nolint:gosec // see above
 }
 
 func truncate(s string, n int) string {

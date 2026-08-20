@@ -6,6 +6,7 @@ require (
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/go-chi/chi/v5 v5.3.2
 	github.com/prometheus/client_golang v1.24.1
+	golang.org/x/image v0.45.0
 )
 
 require (

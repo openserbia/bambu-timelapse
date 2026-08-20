@@ -70,6 +70,10 @@ type Service struct {
 	// snapshot that actually carries a printer state.
 	reconciled bool
 
+	// font is the path drawtext draws with, resolved once at startup. Empty
+	// means captions are off for this run.
+	font string
+
 	capturing   atomic.Bool
 	lastReport  atomic.Int64
 	mqttUp      atomic.Bool
@@ -83,7 +87,7 @@ func New(cfg *config.Config, log *slog.Logger) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("staging: %w", err)
 	}
-	return &Service{
+	svc := &Service{
 		cfg:   cfg,
 		log:   log,
 		state: telemetry.NewState(),
@@ -91,7 +95,31 @@ func New(cfg *config.Config, log *slog.Logger) (*Service, error) {
 		cam:   camera.New(cfg.Host, cfg.AccessCode, cfg.CaptureTimeout),
 		up:    uploader.New(cfg.APIURL, cfg.APIToken, cfg.APIFields),
 		m:     NewMetrics(),
-	}, nil
+	}
+	if cfg.Overlay {
+		svc.font = svc.resolveFont()
+	}
+	return svc, nil
+}
+
+// resolveFont settles on a font once, at startup, rather than at the encode —
+// which runs once, at the end of a print. Failing to find one costs the
+// caption and says so; it is never a reason not to record the print.
+func (s *Service) resolveFont() string {
+	if s.cfg.OverlayFont != "" {
+		_, err := os.Stat(s.cfg.OverlayFont)
+		if err == nil {
+			return s.cfg.OverlayFont
+		}
+		s.log.Warn("OVERLAY_FONT is unreadable; using the bundled font",
+			"path", s.cfg.OverlayFont, "err", err)
+	}
+	font, err := camera.BundledFont(s.store.Root())
+	if err != nil {
+		s.log.Warn("no font to draw with; captions are off for this run", "err", err)
+		return ""
+	}
+	return font
 }
 
 // Run connects to the printer and blocks until ctx is cancelled.
@@ -372,6 +400,7 @@ func (s *Service) capture(sess *session.Session, layer int) {
 		}
 		s.mu.Lock()
 		sess.Frames++
+		sess.Layers = append(sess.Layers, layer)
 		_ = sess.Save()
 		frames := sess.Frames
 		s.mu.Unlock()
@@ -413,7 +442,7 @@ func (s *Service) finalize(sess *session.Session, endState string, skipDelay boo
 
 	filename := s.filename(sess)
 	video := filepath.Join(sess.Dir(), filename)
-	if err := camera.Encode(ctx, sess.Dir(), video, s.cfg.FPS, s.cfg.Crop); err != nil {
+	if err := s.encode(ctx, sess, video, cover); err != nil {
 		s.log.Error("encode failed", "err", err)
 		s.m.Uploads.WithLabelValues("failed").Inc()
 		_ = s.store.Park(sess, "encode-failed")
@@ -426,7 +455,7 @@ func (s *Service) finalize(sess *session.Session, endState string, skipDelay boo
 	w, h := camera.Dimensions(ctx, video)
 	req := uploader.Request{
 		VideoPath: video, CoverPath: cover, Filename: filename, Caption: caption,
-		Duration: max(1, sess.Frames/s.cfg.FPS), Width: w, Height: h,
+		Duration: s.duration(sess, cover), Width: w, Height: h,
 	}
 
 	for attempt := 1; attempt <= uploadAttempts; attempt++ {
@@ -501,6 +530,72 @@ func (s *Service) awaitCapture(limit time.Duration) {
 	for s.capturing.Load() && time.Now().Before(deadline) {
 		time.Sleep(100 * time.Millisecond)
 	}
+}
+
+// encode renders the video, and if that fails with a caption, renders it
+// again without one.
+//
+// The overlay is decoration; the footage is a print that took hours and
+// cannot be repeated. Parking a finished job over a drawtext argument would
+// be the wrong way round.
+func (s *Service) encode(ctx context.Context, sess *session.Session, video, cover string) error {
+	opts := camera.EncodeOptions{
+		FPS:     s.cfg.FPS,
+		Crop:    s.cfg.Crop,
+		Cover:   cover,
+		Intro:   s.cfg.Intro,
+		Tail:    s.cfg.Tail,
+		Overlay: s.overlay(sess),
+	}
+	err := camera.Encode(ctx, sess.Dir(), video, opts)
+	if err == nil || opts.Overlay == nil {
+		return err
+	}
+	s.log.Error("encode failed; retrying without the caption", "err", err)
+	opts.Overlay = nil
+	return camera.Encode(ctx, sess.Dir(), video, opts)
+}
+
+// overlay builds the caption burned into the footage: a fixed title line and,
+// under it, the layer the frame on screen was actually captured on.
+func (s *Service) overlay(sess *session.Session) *camera.Overlay {
+	if !s.cfg.Overlay {
+		return nil
+	}
+	if s.font == "" {
+		return nil
+	}
+	o := &camera.Overlay{FontFile: s.font, Title: s.cfg.PrinterName}
+	if sess.JobName != "" {
+		o.Title += " · " + sess.JobName
+	}
+	// A state file written before the layer list existed cannot say which
+	// layer any given frame belongs to, and a counter that is merely plausible
+	// is worse than no counter: the video contradicts it on the way past.
+	if len(sess.Layers) != sess.Frames {
+		return o
+	}
+	o.Lines = make([]string, sess.Frames)
+	for i, layer := range sess.Layers {
+		if sess.TotalLayers > 0 {
+			o.Lines[i] = fmt.Sprintf("Layer %d/%d", layer, sess.TotalLayers)
+			continue
+		}
+		o.Lines[i] = fmt.Sprintf("Layer %d", layer)
+	}
+	return o
+}
+
+// duration is what the destination is told the video runs for: the footage
+// plus whatever is held at either end, so a player's scrubber matches the
+// file it is scrubbing.
+func (s *Service) duration(sess *session.Session, cover string) int {
+	total := time.Duration(sess.Frames) * time.Second / time.Duration(s.cfg.FPS)
+	total += s.cfg.Tail
+	if cover != "" {
+		total += s.cfg.Intro
+	}
+	return max(1, int(total.Seconds()))
 }
 
 func (s *Service) filename(sess *session.Session) string {

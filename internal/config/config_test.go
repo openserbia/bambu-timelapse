@@ -104,3 +104,62 @@ func TestErrorsAreCollectedNotShortCircuited(t *testing.T) {
 		}
 	}
 }
+
+func TestOverlayIsOnByDefault(t *testing.T) {
+	setPrinterEnv(t)
+	cfg, err := LoadPrinter()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Overlay {
+		t.Fatal("Overlay defaulted off")
+	}
+	if cfg.Intro != 5*time.Second || cfg.Tail != 5*time.Second {
+		t.Fatalf("holds default to %v/%v, want 5s each", cfg.Intro, cfg.Tail)
+	}
+}
+
+func TestOverlayRejectsNonBoolean(t *testing.T) {
+	setPrinterEnv(t)
+	t.Setenv("OVERLAY", "yes please")
+	if _, err := LoadPrinter(); err == nil || !strings.Contains(err.Error(), "OVERLAY") {
+		t.Fatalf("OVERLAY accepted a non-boolean; err=%v", err)
+	}
+}
+
+func TestHoldsRejectNegatives(t *testing.T) {
+	setPrinterEnv(t)
+	t.Setenv("TAIL_HOLD", "-5")
+	if _, err := LoadPrinter(); err == nil || !strings.Contains(err.Error(), "TAIL_HOLD") {
+		t.Fatalf("a negative hold was accepted; err=%v", err)
+	}
+}
+
+func TestMissingFontIsNotFatal(t *testing.T) {
+	// The font is decoration on a video. An unreadable one costs the caption
+	// and is logged; refusing to boot over it would stop the service
+	// recording prints at all — which is what it is for.
+	setPrinterEnv(t)
+	t.Setenv("MEDIA_API_URL", "http://media.internal/upload")
+	t.Setenv("MEDIA_API_TOKEN", "token")
+	t.Setenv("OVERLAY_FONT", "/nonexistent/DejaVuSans.ttf")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("a missing font blocked startup: %v", err)
+	}
+	if cfg.OverlayFont != "/nonexistent/DejaVuSans.ttf" {
+		t.Fatalf("OverlayFont = %q", cfg.OverlayFont)
+	}
+}
+
+func TestOverlayFontDefaultsToTheBundledOne(t *testing.T) {
+	setPrinterEnv(t)
+	cfg, err := LoadPrinter()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.OverlayFont != "" {
+		t.Fatalf("OverlayFont defaulted to %q; empty means the bundled font", cfg.OverlayFont)
+	}
+}

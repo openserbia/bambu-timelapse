@@ -3,6 +3,8 @@ package service
 import (
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -120,5 +122,103 @@ func TestClean(t *testing.T) {
 		if got := clean(in, 40); got != want {
 			t.Errorf("clean(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestOverlayCountsCapturedLayersNotFrames(t *testing.T) {
+	svc := testService(t)
+	svc.cfg.Overlay = true
+	svc.font = "/font.ttf"
+	// Layer 3 was skipped — a grab was still in flight — so frame 3 is layer
+	// 4. Numbering the caption off the frame index would say layer 3 while the
+	// footage shows the layer after it.
+	sess := &session.Session{
+		JobName: "Bracket", TotalLayers: 500, Frames: 3, Layers: []int{1, 2, 4},
+	}
+	o := svc.overlay(sess)
+	if o == nil {
+		t.Fatal("no overlay built")
+	}
+	if o.Title != "p2s-01 · Bracket" {
+		t.Fatalf("title = %q", o.Title)
+	}
+	want := []string{"Layer 1/500", "Layer 2/500", "Layer 4/500"}
+	for i, line := range want {
+		if o.Lines[i] != line {
+			t.Errorf("line %d = %q, want %q", i, o.Lines[i], line)
+		}
+	}
+}
+
+func TestOverlayDropsCounterWhenLayersAreUnknown(t *testing.T) {
+	svc := testService(t)
+	svc.cfg.Overlay = true
+	svc.font = "/font.ttf"
+	// A state file written before the layer list existed: frames captured,
+	// nothing that says which layer any of them is.
+	sess := &session.Session{JobName: "Bracket", Frames: 12}
+
+	o := svc.overlay(sess)
+	if o == nil {
+		t.Fatal("no overlay built")
+	}
+	if len(o.Lines) != 0 {
+		t.Fatalf("counter invented from %d frames and no layers: %v", sess.Frames, o.Lines)
+	}
+}
+
+func TestOverlayOffProducesNone(t *testing.T) {
+	svc := testService(t)
+	svc.cfg.Overlay = false
+	svc.font = "/font.ttf"
+	if o := svc.overlay(&session.Session{Frames: 3, Layers: []int{1, 2, 3}}); o != nil {
+		t.Fatalf("overlay built while disabled: %+v", o)
+	}
+}
+
+func TestOverlayNeedsAFont(t *testing.T) {
+	// No font resolved at startup: the print is still recorded and posted,
+	// just without a caption drawn over it.
+	svc := testService(t)
+	svc.cfg.Overlay = true
+	svc.font = ""
+	if o := svc.overlay(&session.Session{Frames: 3, Layers: []int{1, 2, 3}}); o != nil {
+		t.Fatalf("overlay built with no font: %+v", o)
+	}
+}
+
+func TestBundledFontIsUsedWhenNoneIsConfigured(t *testing.T) {
+	svc := testService(t)
+	font := svc.resolveFont()
+	if font == "" {
+		t.Fatal("no font resolved; the binary carries one")
+	}
+	if _, err := os.Stat(font); err != nil {
+		t.Fatalf("resolved font is not on disk: %v", err)
+	}
+}
+
+func TestUnreadableFontFallsBackToTheBundledOne(t *testing.T) {
+	svc := testService(t)
+	svc.cfg.OverlayFont = filepath.Join(t.TempDir(), "missing.ttf")
+
+	font := svc.resolveFont()
+	if font == "" || font == svc.cfg.OverlayFont {
+		t.Fatalf("resolveFont() = %q, want the bundled font", font)
+	}
+}
+
+func TestDurationCountsBothHelds(t *testing.T) {
+	svc := testService(t)
+	svc.cfg.Intro = 5 * time.Second
+	svc.cfg.Tail = 5 * time.Second
+	sess := &session.Session{Frames: 200} // 10s at 20fps
+
+	if got := svc.duration(sess, "cover.jpg"); got != 20 {
+		t.Fatalf("duration = %ds, want 20 (5 intro + 10 footage + 5 tail)", got)
+	}
+	// No cover means no intro was concatenated, so it must not be counted.
+	if got := svc.duration(sess, ""); got != 15 {
+		t.Fatalf("duration without a cover = %ds, want 15", got)
 	}
 }

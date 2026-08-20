@@ -61,10 +61,15 @@ type Session struct {
 	Frames      int       `json:"frames"`
 	LastLayer   int       `json:"last_layer"`
 	TotalLayers int       `json:"total_layers"`
-	Nozzle      Temps     `json:"nozzle"`
-	Bed         Temps     `json:"bed"`
-	Filament    string    `json:"filament"`
-	Pauses      int       `json:"pauses"`
+	// Layers is the layer each captured frame belongs to, in frame order.
+	// Frame numbering is sequential and a skipped grab leaves no frame, so
+	// this is the only honest way to caption frame N with a layer number —
+	// anything derived from N alone drifts by every layer the camera missed.
+	Layers   []int  `json:"layers,omitempty"`
+	Nozzle   Temps  `json:"nozzle"`
+	Bed      Temps  `json:"bed"`
+	Filament string `json:"filament"`
+	Pauses   int    `json:"pauses"`
 	// Partial records that capture began after layer 1 — the service booted
 	// mid-print. The caption must say so: reporting elapsed-since-we-started
 	// as the print duration is a lie the video itself contradicts.
