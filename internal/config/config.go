@@ -56,9 +56,19 @@ type Config struct {
 	ListenAddr     string
 }
 
-// Load reads the environment, returning every problem at once rather than the
-// first: a misconfigured deploy should need one restart to diagnose, not five.
-func Load() (*Config, error) {
+// Load reads the full runtime configuration.
+func Load() (*Config, error) { return load(true) }
+
+// LoadPrinter reads only what is needed to talk to the printer.
+//
+// The debug command has no destination to publish to, and demanding
+// MEDIA_API_URL before it will tell you why the printer is unreachable gets
+// the diagnostic order exactly backwards.
+func LoadPrinter() (*Config, error) { return load(false) }
+
+// load returns every problem at once rather than the first: a misconfigured
+// deploy should need one restart to diagnose, not five.
+func load(needSink bool) (*Config, error) {
 	var errs []error
 	req := func(key string) string {
 		v := strings.TrimSpace(os.Getenv(key))
@@ -79,6 +89,13 @@ func Load() (*Config, error) {
 		}
 		return n
 	}
+	// sink fields are required only when the service will actually publish.
+	sink := func(key string) string {
+		if needSink {
+			return req(key)
+		}
+		return strings.TrimSpace(os.Getenv(key))
+	}
 	str := func(key, def string) string {
 		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 			return v
@@ -91,8 +108,8 @@ func Load() (*Config, error) {
 		Serial:         req("PRINTER_SERIAL"),
 		AccessCode:     req("PRINTER_ACCESS_CODE"),
 		PrinterName:    str("PRINTER_NAME", "printer"),
-		APIURL:         req("MEDIA_API_URL"),
-		APIToken:       req("MEDIA_API_TOKEN"),
+		APIURL:         sink("MEDIA_API_URL"),
+		APIToken:       sink("MEDIA_API_TOKEN"),
 		StagingDir:     str("STAGING_DIR", "/staging"),
 		FPS:            num("TIMELAPSE_FPS", defaultFPS),
 		MinFrames:      num("MIN_FRAMES", defaultMinFrames),

@@ -105,6 +105,22 @@ Use an operator alias for `PRINTER_NAME`, never the serial: the serial is the
 MQTT topic key and the cloud-binding identifier, and the filename is published
 to a channel.
 
+## Debugging
+
+```sh
+bambu-timelapse debug                      # ports, state, camera + storage config
+bambu-timelapse debug -raw                 # the entire merged report as JSON
+bambu-timelapse debug -frame /tmp/f.jpg    # also grab one still
+```
+
+Needs only `PRINTER_HOST`, `PRINTER_SERIAL` and `PRINTER_ACCESS_CODE` — being
+made to configure a publish destination before it will tell you why the
+printer is unreachable gets the diagnostic order backwards.
+
+It answers the questions that otherwise cost a throwaway MQTT client: whether
+322 is open, whether `rtsp_url` still reads `"disable"`, which `task_id` is
+live, and whether the printer has any storage at all.
+
 ## Operating
 
 `/healthz` reports unhealthy when telemetry goes quiet for five minutes. That

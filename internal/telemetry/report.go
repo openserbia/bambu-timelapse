@@ -64,6 +64,10 @@ func (s *State) Merge(payload []byte) bool {
 	return true
 }
 
+// Fields exposes the merged report. Read-only by convention; the debug dump
+// is the only caller, and it only serialises it.
+func (s *State) Fields() map[string]any { return s.fields }
+
 // Has reports whether a key was ever seen.
 func (s *State) Has(key string) bool {
 	_, ok := s.fields[key]
