@@ -1,0 +1,55 @@
+name: Build and publish
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    # The rpi pool is native arm64 — the architecture this actually runs on.
+    # Building here avoids QEMU emulation entirely, and the runner already has
+    # the Docker socket the publish step needs.
+    runs-on: [self-hosted, rpi]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Lint, test, build
+        run: |
+          curl -fsSL https://get.jetpack.io/devbox | FORCE=1 bash
+          devbox run -- task ci
+
+  publish:
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: [self-hosted, rpi]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # :latest only — Watchtower on the Pi tracks the tag and recreates
+          # the container when the digest moves. The SHA tag exists so a bad
+          # deploy can be pinned back by digest.
+          tags: |
+            ghcr.io/openserbia/bambu-timelapse:latest
+            ghcr.io/openserbia/bambu-timelapse:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

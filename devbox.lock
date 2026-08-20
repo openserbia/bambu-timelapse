@@ -1,0 +1,282 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "ffmpeg@latest": {
+      "last_modified": "2026-08-17T10:51:46Z",
+      "resolved": "github:NixOS/nixpkgs/f4b6996c4e8b9ee06ce147ec344c885f51071b14#ffmpeg",
+      "source": "devbox-search",
+      "version": "9.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "bin",
+              "path": "/nix/store/acjj5idqmabj4haw3p2by1jy9jjc590b-ffmpeg-9.0-bin",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/nxhd6q2m5m7w9k40cyyvx6rah2y2dkq1-ffmpeg-9.0-man",
+              "default": true
+            },
+            {
+              "name": "data",
+              "path": "/nix/store/5c929js7iplxx9h1wlqw9grfdss61719-ffmpeg-9.0-data"
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/hlvakz4wmjfam9bkm45g16mplmhzbs9b-ffmpeg-9.0-dev"
+            },
+            {
+              "name": "doc",
+              "path": "/nix/store/p9jg77x4mldixz9l25mclxn1mjn4xznh-ffmpeg-9.0-doc"
+            },
+            {
+              "name": "lib",
+              "path": "/nix/store/aj6wl80c6ykdi231cbi0magvrnjv4iyl-ffmpeg-9.0-lib"
+            },
+            {
+              "name": "out",
+              "path": "/nix/store/8lqja36ab9qx8m3rdf6pq716sffi138j-ffmpeg-9.0"
+            }
+          ],
+          "store_path": "/nix/store/acjj5idqmabj4haw3p2by1jy9jjc590b-ffmpeg-9.0-bin"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "bin",
+              "path": "/nix/store/kz2l9iyiiy5n3gdsdhsbxasry95h6lhj-ffmpeg-9.0-bin",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/rbxpmzkqxaipqb56vshmfgvi8ssdyil1-ffmpeg-9.0-man",
+              "default": true
+            },
+            {
+              "name": "out",
+              "path": "/nix/store/ddb2jpfg29x0xrj909mrhvl5kyi1nkpb-ffmpeg-9.0"
+            },
+            {
+              "name": "data",
+              "path": "/nix/store/n6cmzk5dyqz75yz085vxcd6g4fc5ybwh-ffmpeg-9.0-data"
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/11rhyii7fmbclmwzvzn9ifm6i5dr0hmi-ffmpeg-9.0-dev"
+            },
+            {
+              "name": "doc",
+              "path": "/nix/store/6plpp9ly6f0rhf1iqm5lwjcgnmca96q8-ffmpeg-9.0-doc"
+            },
+            {
+              "name": "lib",
+              "path": "/nix/store/bfggcc7w57hrcapykcwv2hngbfk1393i-ffmpeg-9.0-lib"
+            }
+          ],
+          "store_path": "/nix/store/kz2l9iyiiy5n3gdsdhsbxasry95h6lhj-ffmpeg-9.0-bin"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "bin",
+              "path": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/6rhk5lnda0bn8lxcj2lxj3rh21k6m511-ffmpeg-9.0-man",
+              "default": true
+            },
+            {
+              "name": "doc",
+              "path": "/nix/store/h4vxy6j3n3bkmcwdrw1wlkhk7vh459y1-ffmpeg-9.0-doc"
+            },
+            {
+              "name": "lib",
+              "path": "/nix/store/byrrwp394d0hn6py4hbkjndnkqfw271c-ffmpeg-9.0-lib"
+            },
+            {
+              "name": "out",
+              "path": "/nix/store/1h9k415h3xs17dxq68afgfx1g06ahcp7-ffmpeg-9.0"
+            },
+            {
+              "name": "data",
+              "path": "/nix/store/cjwr2i0ydr3zf1zam06gqgfzzvni35g6-ffmpeg-9.0-data"
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/zi7hs9vvxgx6ld1lyyk6szswdy39xgmp-ffmpeg-9.0-dev"
+            }
+          ],
+          "store_path": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin"
+        }
+      }
+    },
+    "gci@latest": {
+      "last_modified": "2026-08-12T11:28:58Z",
+      "resolved": "github:NixOS/nixpkgs/044bfe75bfe4c7bbe043dc17b5e42ea823b84a09#gci",
+      "source": "devbox-search",
+      "version": "0.14.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/rm59kzlmawrjdz3d53pxg4qsdgcw9r08-gci-0.14.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/rm59kzlmawrjdz3d53pxg4qsdgcw9r08-gci-0.14.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/q3x8x5m49nyy0qnwsyzw5c2rvxhyd6lv-gci-0.14.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/q3x8x5m49nyy0qnwsyzw5c2rvxhyd6lv-gci-0.14.0"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/6127sq7ja6v97nf748dagf2p1p2dgppr-gci-0.14.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/6127sq7ja6v97nf748dagf2p1p2dgppr-gci-0.14.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/k18506x4ly3vch7s457kg7g7yfqh8vhf-gci-0.14.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/k18506x4ly3vch7s457kg7g7yfqh8vhf-gci-0.14.0"
+        }
+      }
+    },
+    "git@latest": {
+      "last_modified": "2026-08-12T11:28:58Z",
+      "resolved": "github:NixOS/nixpkgs/044bfe75bfe4c7bbe043dc17b5e42ea823b84a09#git",
+      "source": "devbox-search",
+      "version": "2.55.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/hiw6ii978dc8s153v60fzy6myzqxymm7-git-2.55.0",
+              "default": true
+            },
+            {
+              "name": "doc",
+              "path": "/nix/store/181ykp1mvmh07rq1sqfss8n7s1sc3mlm-git-2.55.0-doc"
+            }
+          ],
+          "store_path": "/nix/store/hiw6ii978dc8s153v60fzy6myzqxymm7-git-2.55.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/q3pvpkn0qmin7x572p3z32hxz9yny73i-git-2.55.0",
+              "default": true
+            },
+            {
+              "name": "debug",
+              "path": "/nix/store/5rjalzcb929d9qrxp8v6xxz99vfhmxhn-git-2.55.0-debug"
+            },
+            {
+              "name": "doc",
+              "path": "/nix/store/jbfpbknl5qh0cm5zg48gxgb6fzhwvq04-git-2.55.0-doc"
+            }
+          ],
+          "store_path": "/nix/store/q3pvpkn0qmin7x572p3z32hxz9yny73i-git-2.55.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/8wxs6573l730vxkqd6wp58kvxa19csll-git-2.55.0",
+              "default": true
+            },
+            {
+              "name": "debug",
+              "path": "/nix/store/3zxdc75ib758dwba0afaj63d33w6z42w-git-2.55.0-debug"
+            },
+            {
+              "name": "doc",
+              "path": "/nix/store/h1dp7wlh1saz2d77ajpdpbms1fn56ih8-git-2.55.0-doc"
+            }
+          ],
+          "store_path": "/nix/store/8wxs6573l730vxkqd6wp58kvxa19csll-git-2.55.0"
+        }
+      }
+    },
+    "github:NixOS/nixpkgs/nixpkgs-unstable": {
+      "last_modified": "2026-07-24T05:48:35Z",
+      "resolved": "github:NixOS/nixpkgs/335f0738cb2fa9708f3f428e39d2eae975d1338d?lastModified=1784872115&narHash=sha256-THPEF2po0fsoH8gNtp%2BAe0XFDJH3N%2Fol7xO3v6VMTJU%3D"
+    },
+    "github:openserbia/go-flake#gofumpt_0_10_0": {
+      "last_modified": "2026-08-20T06:44:40Z",
+      "resolved": "github:openserbia/go-flake/da3c89828929599a5136fec793161696cfe3303c?lastModified=1787208280&narHash=sha256-JXT%2BRcTFpH66Yd%2BxsCg%2Ffv%2BGwp5vp89h%2BVgGF%2FsHByc%3D#gofumpt_0_10_0"
+    },
+    "github:openserbia/go-flake#golangci-lint_2_12_2": {
+      "last_modified": "2026-08-20T06:44:40Z",
+      "resolved": "github:openserbia/go-flake/da3c89828929599a5136fec793161696cfe3303c?lastModified=1787208280&narHash=sha256-JXT%2BRcTFpH66Yd%2BxsCg%2Ffv%2BGwp5vp89h%2BVgGF%2FsHByc%3D#golangci-lint_2_12_2"
+    },
+    "github:openserbia/go-flake#govulncheck_1_3_0": {
+      "last_modified": "2026-08-20T06:44:40Z",
+      "resolved": "github:openserbia/go-flake/da3c89828929599a5136fec793161696cfe3303c?lastModified=1787208280&narHash=sha256-JXT%2BRcTFpH66Yd%2BxsCg%2Ffv%2BGwp5vp89h%2BVgGF%2FsHByc%3D#govulncheck_1_3_0"
+    },
+    "github:openserbia/go-flake#packages.x86_64-linux.go_1_26_7": {
+      "last_modified": "2026-08-20T06:44:40Z",
+      "resolved": "github:openserbia/go-flake/da3c89828929599a5136fec793161696cfe3303c?lastModified=1787208280&narHash=sha256-JXT%2BRcTFpH66Yd%2BxsCg%2Ffv%2BGwp5vp89h%2BVgGF%2FsHByc%3D#packages.x86_64-linux.go_1_26_7"
+    },
+    "go-task@latest": {
+      "last_modified": "2026-08-16T22:25:34Z",
+      "resolved": "github:NixOS/nixpkgs/21e032ff95225fb81164a2b2b696c5f6841fcb62#go-task",
+      "source": "devbox-search",
+      "version": "3.52.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/cai65hxx8nfq0pcy1jsi9bpf9rdkgm8d-go-task-3.52.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/cai65hxx8nfq0pcy1jsi9bpf9rdkgm8d-go-task-3.52.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/viya59rc1708vqi0g67kzmsnvn4ql3gn-go-task-3.52.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/viya59rc1708vqi0g67kzmsnvn4ql3gn-go-task-3.52.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/x9x07fj5xhwp1riqms54b75izn59xdch-go-task-3.52.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/x9x07fj5xhwp1riqms54b75izn59xdch-go-task-3.52.0"
+        }
+      }
+    }
+  }
+}

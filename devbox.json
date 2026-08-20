@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.13.6/.schema/devbox.schema.json",
+  "packages": {
+    "github:openserbia/go-flake#packages.x86_64-linux.go_1_26_7": "",
+    "github:openserbia/go-flake#golangci-lint_2_12_2": "",
+    "github:openserbia/go-flake#gofumpt_0_10_0":       "",
+    "github:openserbia/go-flake#govulncheck_1_3_0":    "",
+    "go-task":  "latest",
+    "gci":      "latest",
+    "ffmpeg":   "latest",
+    "git":      "latest"
+  },
+  "env": {
+    "GOROOT": "$DEVBOX_PROJECT_ROOT/.devbox/nix/profile/default/share/go"
+  },
+  "shell": { "init_hook": [], "scripts": {} }
+}

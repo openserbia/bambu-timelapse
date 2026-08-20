@@ -1,0 +1,6 @@
+# Anchored so a package named "build" would never be ignored.
+/build/
+/.devbox/
+/staging/
+*.cov
+/.task/

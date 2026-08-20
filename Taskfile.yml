@@ -1,0 +1,54 @@
+version: '3'
+
+vars:
+  BUILD_PATH: build
+
+tasks:
+  deps:
+    desc: Download modules and audit reachable CVEs
+    sources:
+      - go.mod
+      - go.sum
+      # devbox.lock too: govulncheck's verdict depends on the Go TOOLCHAIN as
+      # much as on the modules — most advisories it reports are stdlib. Without
+      # this, a toolchain bump leaves a stale "up to date" cache and the scan
+      # never re-runs. (tg-antispam learned this the hard way: a red CI sat
+      # unexplained because `deps` kept reporting itself cached.)
+      - devbox.lock
+    cmds:
+      - go mod download
+      - go mod tidy
+      - govulncheck ./...
+
+  fmt:
+    desc: Format
+    cmds:
+      - gci write -s standard -s default -s "prefix(github.com/openserbia)" --skip-generated .
+      - gofumpt -l -w .
+
+  lint:
+    desc: Format then lint
+    deps: [deps]
+    cmds:
+      - task: fmt
+      - golangci-lint run
+
+  test:
+    desc: Unit tests
+    cmds:
+      - go test ./...
+
+  build:
+    desc: Build the static binary
+    deps: [deps]
+    cmds:
+      # Static: the runtime image is Alpine (musl), and netgo/osusergo keep DNS
+      # and user lookups in Go rather than glibc's NSS.
+      - CGO_ENABLED=0 go build -tags "netgo osusergo" -trimpath -ldflags="-s -w" -o {{.BUILD_PATH}}/bambu-timelapse ./cmd/bambu-timelapse
+
+  ci:
+    desc: What CI runs
+    cmds:
+      - task: lint
+      - task: test
+      - task: build
