@@ -129,6 +129,65 @@ func (s *Service) resolveFont() string {
 	return font
 }
 
+// RunTimed captures on a clock rather than on layer changes, and never speaks
+// to the printer's telemetry at all.
+//
+// It exists because the interesting parts of this service — the crop, the
+// caption, the held ends, the encode — are testable in a minute, while a
+// layer-synced capture needs a print. An idle printer still serves its camera.
+// The result is deliberately not layer synced and carries no layer counter:
+// there are no layers, and a caption that implied otherwise would be a claim
+// the video contradicts.
+func (s *Service) RunTimed(ctx context.Context, every time.Duration, maxFrames int) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	s.stop = cancel
+	s.shutdownCtx = ctx
+
+	if err := s.preflight(ctx); err != nil {
+		return err
+	}
+
+	// A synthetic identity: the resume key exists to survive restarts, and a
+	// timed capture that outlives one is not something anyone wants resumed.
+	taskID := fmt.Sprintf("timed-%d", time.Now().Unix())
+	sess, _, err := s.store.Create(taskID, "timed capture", 0, 0)
+	if err != nil {
+		return fmt.Errorf("staging: %w", err)
+	}
+	s.log.Info("capturing on a timer",
+		"every", every, "frames", maxFrames, "dir", sess.Dir())
+
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for maxFrames <= 0 || sess.Frames < maxFrames {
+		select {
+		case <-ctx.Done():
+			s.log.Info("stopping; encoding what was captured", "frames", sess.Frames)
+			s.finalize(sess, telemetry.StateFinish, true)
+			return nil
+		case <-ticker.C:
+		}
+
+		dest := sess.FramePath()
+		if err := s.cam.Grab(ctx, dest); err != nil {
+			// Not fatal: one refused RTSPS session should not end a capture
+			// that is otherwise working.
+			s.log.Warn("frame grab failed", "err", err)
+			s.m.CaptureFailures.Inc()
+			continue
+		}
+		sess.Frames++
+		_ = sess.Save()
+		s.m.FramesCaptured.Inc()
+		s.m.SessionFrames.Set(float64(sess.Frames))
+		s.log.Info("frame captured", "n", sess.Frames)
+	}
+
+	s.finalize(sess, telemetry.StateFinish, true)
+	return nil
+}
+
 // Run connects to the printer and blocks until ctx is cancelled.
 func (s *Service) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)

@@ -64,6 +64,14 @@ tasks:
         done
       - cd {{.BUILD_PATH}}/dist && sha256sum *.tar.gz > SHA256SUMS
 
+  debug:
+    desc: One diagnostic snapshot from the printer (task debug -- -raw)
+    # Reads .env like every other local run, so it needs no arguments to find
+    # the printer. Pass the command's own flags after --, e.g. -raw or
+    # -frame /tmp/f.jpg.
+    cmds:
+      - go run ./cmd/bambu-timelapse debug {{.CLI_ARGS}}
+
   ci:
     desc: What CI runs
     cmds:

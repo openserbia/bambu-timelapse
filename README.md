@@ -217,6 +217,22 @@ require a chat on the other end, or put a test print in one.
 something does not leave a daemon behind. If the output directory cannot be
 written, the job is parked in `failed/` rather than lost.
 
+### Without a print at all
+
+```sh
+bambu-timelapse record -interval 2s -frames 8 -out /tmp
+```
+
+Captures on a clock instead of on layer changes, which needs no print and no
+telemetry — an idle printer still serves its camera. It is how the crop, the
+caption and the encode get checked in a minute rather than in however long a
+job takes, and Ctrl-C encodes what has been captured so far rather than
+throwing it away.
+
+The result is deliberately not layer synced and carries no layer counter:
+there are no layers, and a caption implying otherwise would be a claim the
+video contradicts.
+
 ## Configuring a local run
 
 Plain `ffmpeg`/`ffprobe` resolve through PATH, which is what the container

@@ -100,6 +100,9 @@ func runRecord(args []string) int {
 	out := fs.String("out", ".", "directory to write the finished video to")
 	staging := fs.String("staging", "./staging", "where frames are kept while capturing")
 	once := fs.Bool("once", false, "stop after the first print is recorded")
+	every := fs.Duration("interval", 0,
+		"capture on this interval instead of on layer changes; works with an idle printer")
+	frames := fs.Int("frames", 0, "with -interval, stop after this many frames")
 	if err := fs.Parse(args); err != nil {
 		return exitUsage
 	}
@@ -126,7 +129,17 @@ func runRecord(args []string) int {
 	defer stop()
 
 	log.Info("recording", "host", cfg.Host, "out", *out, "staging", *staging, "once", *once)
-	if err := svc.Run(ctx); err != nil {
+
+	run := svc.Run
+	if *every > 0 {
+		// Timed capture needs no telemetry and no print: it is how the crop,
+		// the caption and the encode are checked without waiting hours for a
+		// job to finish.
+		run = func(ctx context.Context) error {
+			return svc.RunTimed(ctx, *every, *frames)
+		}
+	}
+	if err := run(ctx); err != nil {
 		log.Error("recording failed", "err", err)
 		return 1
 	}
