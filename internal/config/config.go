@@ -24,8 +24,9 @@ const (
 	defaultCaptureDelay   = 0
 	defaultMinFreeMB      = 2048
 	defaultFailedTTLDays  = 7
-	defaultIntroSecs      = 5
-	defaultTailSecs       = 5
+	defaultPreviewSecs    = 20
+	defaultIntroSecs      = 2
+	defaultTailSecs       = 2
 
 	mib = 1024 * 1024
 )
@@ -85,9 +86,13 @@ type Config struct {
 	// own idea of PATH — an IDE run configuration, a cron entry, a unit file.
 	FFmpegBin  string
 	FFprobeBin string
-	// Intro holds the cover still at the head of the video and Tail holds the
-	// last captured frame at the end, so the result opens on the finished
-	// print and does not cut away the instant the print does.
+	// PreviewTimeout bounds the FTPS fetch of the slicer's plate render. It
+	// runs while the print does, so it can afford to be patient — but not
+	// indefinitely patient, since nothing else is waiting for it.
+	PreviewTimeout time.Duration
+	// Intro holds the slicer's plate render at the head of the video and Tail
+	// holds the finished print at the end, so the result opens on what the
+	// print was meant to be and closes on what it became.
 	Intro          time.Duration
 	Tail           time.Duration
 	MinFrames      int
@@ -179,6 +184,7 @@ func load(needSink bool) (*Config, error) {
 		OverlayFont:    str("OVERLAY_FONT", ""),
 		FFmpegBin:      str("FFMPEG_BIN", "ffmpeg"),
 		FFprobeBin:     str("FFPROBE_BIN", "ffprobe"),
+		PreviewTimeout: time.Duration(num("PREVIEW_TIMEOUT", defaultPreviewSecs)) * time.Second,
 		Intro:          time.Duration(num("INTRO_HOLD", defaultIntroSecs)) * time.Second,
 		Tail:           time.Duration(num("TAIL_HOLD", defaultTailSecs)) * time.Second,
 		MinFrames:      num("MIN_FRAMES", defaultMinFrames),

@@ -214,12 +214,10 @@ func TestDurationCountsBothHelds(t *testing.T) {
 	svc.cfg.Tail = 5 * time.Second
 	sess := &session.Session{Frames: 200} // 10s at 20fps
 
-	if got := svc.duration(sess, "cover.jpg"); got != 20 {
-		t.Fatalf("duration = %ds, want 20 (5 intro + 10 footage + 5 tail)", got)
-	}
-	// No cover means no intro was concatenated, so it must not be counted.
-	if got := svc.duration(sess, ""); got != 15 {
-		t.Fatalf("duration without a cover = %ds, want 15", got)
+	// No plate preview was fetched, so nothing is held at the head: 10s of
+	// footage plus the 5s finished shot at the end.
+	if got := svc.duration(sess); got != 15 {
+		t.Fatalf("duration = %ds, want 15 (10 footage + 5 tail)", got)
 	}
 }
 

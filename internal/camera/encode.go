@@ -62,18 +62,27 @@ type Overlay struct {
 	Lines    []string
 }
 
+// Still is an image held for a fixed time at one end of the video.
+type Still struct {
+	Path string
+	Hold time.Duration
+}
+
+func (s Still) shown() bool { return s.Path != "" && s.Hold > 0 }
+
 // EncodeOptions is everything the final encode needs beyond the frames.
 type EncodeOptions struct {
 	FPS  int
 	Crop string
-	// Cover is a still held for Intro at the head of the video — the finished
-	// print, before the footage that produced it.
-	Cover string
-	Intro time.Duration
-	// Tail holds the last captured frame, so the video does not cut away the
-	// instant the print does.
-	Tail    time.Duration
-	Overlay *Overlay
+	// Intro opens the video — what the print was meant to be. Outro closes it
+	// with what it turned out to be, which is the frame worth ending on: the
+	// last captured layer still has the toolhead sitting in it.
+	Intro Still
+	Outro Still
+	// TailHold pads the end by cloning the last frame, and is the fallback for
+	// when there is no finished shot to end on.
+	TailHold time.Duration
+	Overlay  *Overlay
 }
 
 // Encode muxes the numbered frames in dir into an H.264 mp4, optionally
@@ -87,26 +96,32 @@ func (t Tools) Encode(ctx context.Context, dir, out string, opts EncodeOptions) 
 		"-i", filepath.Join(dir, framePattern),
 	}
 
-	intro := opts.Cover != "" && opts.Intro > 0
+	stills := []Still{}
+	if opts.Intro.shown() {
+		stills = append(stills, opts.Intro)
+	}
+	if opts.Outro.shown() {
+		stills = append(stills, opts.Outro)
+	}
 	var width, height int
-	if intro {
-		// An unprobeable frame costs the intro, not the video: parking a
+	if len(stills) > 0 {
+		// An unprobeable frame costs the held ends, not the video: parking a
 		// finished print over a piece of decoration would be the worse trade.
 		if width, height = t.targetSize(ctx, dir, opts.Crop); width == 0 {
-			intro = false
+			stills = nil
 		}
 	}
-	if intro {
+	for _, still := range stills {
 		args = append(
 			args,
 			"-loop", "1",
 			"-framerate", strconv.Itoa(opts.FPS),
-			"-t", seconds(opts.Intro),
-			"-i", opts.Cover,
+			"-t", seconds(still.Hold),
+			"-i", still.Path,
 		)
 	}
 
-	graph, label, err := buildGraph(dir, opts, intro, width, height)
+	graph, label, err := buildGraph(dir, opts, len(stills) > 0, width, height)
 	if err != nil {
 		return err
 	}
@@ -143,7 +158,7 @@ func (t Tools) Encode(ctx context.Context, dir, out string, opts EncodeOptions) 
 // is the part that has to be right — crop before the caption so the caption
 // is not cropped away, the caption before the tail so the held frame keeps
 // it — and a second code path would be a second place to get that wrong.
-func buildGraph(dir string, opts EncodeOptions, intro bool, width, height int) (graph, label string, err error) {
+func buildGraph(dir string, opts EncodeOptions, stills bool, width, height int) (graph, label string, err error) {
 	var main []string
 	if opts.Crop != "" {
 		main = append(main, "crop="+opts.Crop)
@@ -155,22 +170,51 @@ func buildGraph(dir string, opts EncodeOptions, intro bool, width, height int) (
 		}
 		main = append(main, filters...)
 	}
-	if opts.Tail > 0 {
-		main = append(main, "tpad=stop_mode=clone:stop_duration="+seconds(opts.Tail))
+	// Cloning the last frame is what ends the video when there is no finished
+	// shot to end on; with one, the still says the same thing and says it
+	// about the print rather than about its last layer.
+	if opts.TailHold > 0 && !opts.Outro.shown() {
+		main = append(main, "tpad=stop_mode=clone:stop_duration="+seconds(opts.TailHold))
 	}
 	// setsar keeps concat from refusing two streams that differ only in a
 	// sample aspect ratio neither of them meaningfully has.
 	main = append(main, "format=yuv420p", "setsar=1")
 
 	graph = "[0:v]" + strings.Join(main, ",") + "[main]"
-	if !intro {
+	if !stills {
 		return graph, "[main]", nil
 	}
-	graph += fmt.Sprintf(
-		";[1:v]scale=%d:%d,format=yuv420p,setsar=1,fps=%d[intro];[intro][main]concat=n=2:v=1:a=0[out]",
-		width, height, opts.FPS,
+
+	// Input 0 is the frames; the stills follow in the order they were added,
+	// which is the order they are concatenated in.
+	var (
+		segments []string
+		input    = 1
 	)
+	if opts.Intro.shown() {
+		graph += stillChain(input, "intro", width, height, opts.FPS)
+		segments = append(segments, "[intro]")
+		input++
+	}
+	segments = append(segments, "[main]")
+	if opts.Outro.shown() {
+		graph += stillChain(input, "outro", width, height, opts.FPS)
+		segments = append(segments, "[outro]")
+	}
+	graph += fmt.Sprintf(";%sconcat=n=%d:v=1:a=0[out]",
+		strings.Join(segments, ""), len(segments))
 	return graph, "[out]", nil
+}
+
+// stillChain conforms one held image to the footage it sits next to. concat
+// refuses inputs that disagree on size, pixel format, aspect or frame rate,
+// and a slicer's preview render agrees with the camera on none of them.
+func stillChain(input int, label string, width, height, fps int) string {
+	return fmt.Sprintf(
+		";[%d:v]scale=%d:%d:force_original_aspect_ratio=decrease,"+
+			"pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=black,"+
+			"format=yuv420p,setsar=1,fps=%d[%s]",
+		input, width, height, width, height, fps, label)
 }
 
 // overlayFilters writes the per-frame command file and returns the drawtext

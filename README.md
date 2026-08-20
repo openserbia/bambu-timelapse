@@ -91,8 +91,9 @@ the literal string `"disable"` to an `rtsps://…:322/…` URL, and port 322 ope
 | `OVERLAY_FONT` | — | Font to draw with; empty uses the one inside the binary |
 | `FFMPEG_BIN` | `ffmpeg` | Encoder binary; an absolute path when PATH cannot be relied on |
 | `FFPROBE_BIN` | `ffprobe` | Prober binary, same |
-| `INTRO_HOLD` | `5` | Seconds the cover is held before the timelapse |
-| `TAIL_HOLD` | `5` | Seconds the last frame is held after it |
+| `INTRO_HOLD` | `2` | Seconds the plate render is held before the timelapse |
+| `TAIL_HOLD` | `2` | Seconds the finished print is held after it |
+| `PREVIEW_TIMEOUT` | `20` | How long to wait for the plate render over FTPS |
 | `MIN_FRAMES` | `30` | Below this the job is discarded, not posted |
 | `FINAL_FRAME_DELAY` | `45` | Seconds to wait before the cover shot |
 | `MIN_FREE_MB` | `2048` | Refuse to capture below this |
@@ -140,9 +141,20 @@ otherwise surface with every frame captured and nothing to show.
 
 ### The overlay and the held ends
 
-The video opens on the cover — the finished print — held for `INTRO_HOLD`,
-then runs the footage, then holds the final captured frame for `TAIL_HOLD`.
-Both are padding at encode time; neither costs a frame or a capture.
+The video runs: the slicer's plate render for `INTRO_HOLD`, the footage, then
+the finished print for `TAIL_HOLD` — what it was meant to be, how it was made,
+what it became. Both ends are padding at encode time; neither costs a frame or
+a capture, and each is skipped rather than faked when its image is missing. A
+run with no finished shot ends by holding the last captured frame instead.
+
+The render is fetched from the printer over FTPS **while the job is printing**,
+because that is the only time it is there: a cloud print's 3mf is downloaded to
+the internal store for the duration and deleted afterwards. The printer's
+vsFTPd wants implicit TLS on 990, wants the data connection to resume the
+control connection's TLS session, and starts that handshake only after the
+transfer command — `internal/ftps` is those three things and nothing else.
+`bambu-timelapse debug` prints what the store currently holds; on an idle
+printer the honest answer is "empty".
 
 Burned into the footage are two lines, bottom left: the printer alias and job
 name, and under it the layer. The counter is driven by the layer each frame

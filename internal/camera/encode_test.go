@@ -27,7 +27,7 @@ func TestGraphOrdersCropCaptionTail(t *testing.T) {
 	// cropped away, and a tail padded before the caption holds an uncaptioned
 	// frame for five seconds.
 	graph, label, err := buildGraph(t.TempDir(), EncodeOptions{
-		FPS: 20, Crop: "1920:820:0:260", Tail: 5 * time.Second, Overlay: testOverlay(),
+		FPS: 20, Crop: "1920:820:0:260", TailHold: 5 * time.Second, Overlay: testOverlay(),
 	}, false, 0, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -51,7 +51,9 @@ func TestGraphOrdersCropCaptionTail(t *testing.T) {
 
 func TestGraphConcatsIntroWhenCoverIsSized(t *testing.T) {
 	graph, label, err := buildGraph(t.TempDir(), EncodeOptions{
-		FPS: 20, Cover: "cover.jpg", Intro: 5 * time.Second,
+		FPS:   20,
+		Intro: Still{Path: "preview.png", Hold: 2 * time.Second},
+		Outro: Still{Path: "cover.jpg", Hold: 2 * time.Second},
 	}, true, 1920, 820)
 	if err != nil {
 		t.Fatal(err)
@@ -59,7 +61,12 @@ func TestGraphConcatsIntroWhenCoverIsSized(t *testing.T) {
 	if label != "[out]" {
 		t.Fatalf("label = %q with an intro", label)
 	}
-	for _, want := range []string{"scale=1920:820", "concat=n=2:v=1:a=0[out]"} {
+	for _, want := range []string{
+		"scale=1920:820", "[intro]", "[outro]",
+		// The order is the story: what it was meant to be, the footage, what
+		// it became.
+		"[intro][main][outro]concat=n=3:v=1:a=0[out]",
+	} {
 		if !strings.Contains(graph, want) {
 			t.Fatalf("%q missing from graph:\n%s", want, graph)
 		}
@@ -180,9 +187,8 @@ func TestEncodeProducesPlayableVideo(t *testing.T) {
 	if err := NewTools("", "").Encode(t.Context(), dir, out, EncodeOptions{
 		FPS:   10,
 		Crop:  "320:160:0:20",
-		Cover: cover,
-		Intro: 2 * time.Second,
-		Tail:  3 * time.Second,
+		Intro: Still{Path: cover, Hold: 2 * time.Second},
+		Outro: Still{Path: cover, Hold: 3 * time.Second},
 		Overlay: &Overlay{
 			FontFile: font,
 			Title:    "p2s-01 · Bracket: it's <fine>",

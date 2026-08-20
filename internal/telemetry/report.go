@@ -162,6 +162,11 @@ func (s *State) Layer() int { return s.Int("layer_num") }
 // TotalLayers is the job's layer count.
 func (s *State) TotalLayers() int { return s.Int("total_layer_num") }
 
+// GcodeFile is the file the printer says it is running, e.g.
+// /data/Metadata/plate_3.gcode. Which plate that is decides which of a
+// multi-plate 3mf's renders belongs to this job.
+func (s *State) GcodeFile() string { return s.String("gcode_file") }
+
 // JobName is the human-readable job title.
 func (s *State) JobName() string { return s.String("subtask_name") }
 

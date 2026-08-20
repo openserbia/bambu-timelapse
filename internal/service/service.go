@@ -19,6 +19,7 @@ import (
 
 	"github.com/openserbia/bambu-timelapse/internal/camera"
 	"github.com/openserbia/bambu-timelapse/internal/config"
+	"github.com/openserbia/bambu-timelapse/internal/preview"
 	"github.com/openserbia/bambu-timelapse/internal/session"
 	"github.com/openserbia/bambu-timelapse/internal/telemetry"
 	"github.com/openserbia/bambu-timelapse/internal/uploader"
@@ -57,6 +58,8 @@ const (
 	mibShift = 20
 	// captionPerm keeps the caption file owner-only, like the rest of staging.
 	captionPerm = 0o600
+	// previewPerm matches it: the plate render says what is being printed.
+	previewPerm = 0o600
 )
 
 // Service is the running daemon.
@@ -482,7 +485,36 @@ func (s *Service) begin() *session.Session {
 	s.log.Info("job started",
 		"task_id", taskID, "job", sess.JobName,
 		"layers", sess.TotalLayers, "resumed", resumed, "partial", sess.Partial)
+
+	if !resumed && s.cfg.Intro > 0 {
+		// Now or never: the printer keeps a cloud job's 3mf only while it is
+		// printing it. Off the MQTT callback, because an FTPS session takes
+		// seconds and the callback is what notices layer changes.
+		go s.fetchPreview(sess)
+	}
 	return sess
+}
+
+// fetchPreview asks the printer for the slicer's render of this job and keeps
+// it next to the frames.
+//
+// Failure is ordinary — a LAN print may keep nothing, a cloud print deletes
+// its 3mf when it finishes — so it is logged at info and the video simply
+// opens on its first layer instead.
+func (s *Service) fetchPreview(sess *session.Session) {
+	image, err := preview.Fetch(s.shutdownCtx, s.cfg.Host, s.cfg.AccessCode,
+		sess.JobName, s.state.GcodeFile(), s.cfg.PreviewTimeout)
+	if err != nil {
+		s.log.Info("no plate preview; the video will open on the first layer",
+			"err", err)
+		return
+	}
+	path := filepath.Join(sess.Dir(), session.PreviewFile)
+	if err := os.WriteFile(path, image, previewPerm); err != nil {
+		s.log.Warn("cannot save the plate preview", "err", err)
+		return
+	}
+	s.log.Info("plate preview saved", "bytes", len(image), "path", path)
 }
 
 func (s *Service) record(sess *session.Session) {
@@ -593,7 +625,7 @@ func (s *Service) finalize(sess *session.Session, endState string, skipDelay boo
 	w, h := s.tools.Dimensions(ctx, video)
 	req := uploader.Request{
 		VideoPath: video, CoverPath: cover, Filename: filename, Caption: caption,
-		Duration: s.duration(sess, cover), Width: w, Height: h,
+		Duration: s.duration(sess), Width: w, Height: h,
 	}
 
 	for attempt := 1; attempt <= uploadAttempts; attempt++ {
@@ -718,12 +750,15 @@ func (s *Service) awaitCapture(limit time.Duration) {
 // be the wrong way round.
 func (s *Service) encode(ctx context.Context, sess *session.Session, video, cover string) error {
 	opts := camera.EncodeOptions{
-		FPS:     s.cfg.FPS,
-		Crop:    s.cfg.Crop,
-		Cover:   cover,
-		Intro:   s.cfg.Intro,
-		Tail:    s.cfg.Tail,
-		Overlay: s.overlay(sess),
+		FPS:  s.cfg.FPS,
+		Crop: s.cfg.Crop,
+		// What it was meant to be, then what it became. The preview is the
+		// slicer's render, fetched from the printer while the job ran; when
+		// there is none the video simply opens on the first layer.
+		Intro:    camera.Still{Path: sess.PreviewPath(), Hold: s.cfg.Intro},
+		Outro:    camera.Still{Path: cover, Hold: s.cfg.Tail},
+		TailHold: s.cfg.Tail,
+		Overlay:  s.overlay(sess),
 	}
 	err := s.tools.Encode(ctx, sess.Dir(), video, opts)
 	if err == nil || opts.Overlay == nil {
@@ -767,10 +802,12 @@ func (s *Service) overlay(sess *session.Session) *camera.Overlay {
 // duration is what the destination is told the video runs for: the footage
 // plus whatever is held at either end, so a player's scrubber matches the
 // file it is scrubbing.
-func (s *Service) duration(sess *session.Session, cover string) int {
+func (s *Service) duration(sess *session.Session) int {
 	total := time.Duration(sess.Frames) * time.Second / time.Duration(s.cfg.FPS)
+	// The tail is held either way: on the finished shot when there is one, on
+	// the last captured frame when there is not.
 	total += s.cfg.Tail
-	if cover != "" {
+	if sess.PreviewPath() != "" {
 		total += s.cfg.Intro
 	}
 	return max(1, int(total.Seconds()))

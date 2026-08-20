@@ -20,6 +20,10 @@ import (
 const (
 	stateFile = "state.json"
 
+	// PreviewFile is where a fetched slicer render is kept, next to the frames
+	// it introduces.
+	PreviewFile = "preview.png"
+
 	// Owner-only: the staging tree is this service's alone, and the state file
 	// records what is being printed.
 	dirPerm  = 0o750
@@ -235,4 +239,18 @@ func sanitize(s string) string {
 		return "unknown"
 	}
 	return string(out)
+}
+
+// PreviewPath is the slicer's render of this job, if one was fetched from the
+// printer while it was still printing.
+//
+// Empty when there is none, and callers open the video on the first layer
+// instead. The printer keeps a cloud job's 3mf only while it prints it, so
+// this is a file that either arrived in time or never will.
+func (s *Session) PreviewPath() string {
+	path := filepath.Join(s.dir, PreviewFile)
+	if info, err := os.Stat(path); err != nil || info.Size() == 0 {
+		return ""
+	}
+	return path
 }

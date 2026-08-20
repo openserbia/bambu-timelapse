@@ -22,6 +22,7 @@ import (
 
 	"github.com/openserbia/bambu-timelapse/internal/camera"
 	"github.com/openserbia/bambu-timelapse/internal/config"
+	"github.com/openserbia/bambu-timelapse/internal/ftps"
 	"github.com/openserbia/bambu-timelapse/internal/telemetry"
 )
 
@@ -32,6 +33,9 @@ const (
 	defaultWait   = 20 * time.Second
 	grabTimeout   = 25 * time.Second
 	messagesToSee = 2
+	// ftpsTimeout bounds the file-store probe; it is a diagnostic, not a
+	// transfer, and a printer that is slow to answer has answered.
+	ftpsTimeout = 10 * time.Second
 	// disconnectGraceMS lets the broker see a clean DISCONNECT rather than a
 	// dropped socket.
 	disconnectGraceMS = 500
@@ -107,6 +111,9 @@ func Run(ctx context.Context, cfg *config.Config, opts Options, out io.Writer) e
 		rw.printf("  %-5s %-14s %-7s %s\n", p.port, p.name, status, p.note)
 	}
 
+	rw.println("\n== file store ==")
+	files(ctx, cfg, rw)
+
 	rw.printf("\n== telemetry (waiting up to %s) ==\n", opts.Wait)
 	state, err := snapshot(ctx, cfg, opts.Wait)
 	if err != nil {
@@ -151,6 +158,35 @@ func toolchain(ctx context.Context, tools camera.Tools, rw *report) {
 			status = "ok"
 		}
 		rw.printf("  %-9s %s\n", filter, status)
+	}
+}
+
+// files reports what the printer is holding, which is what decides whether a
+// plate preview can be fetched. A cloud print keeps its 3mf only while it is
+// printing, so an empty store on an idle printer is the normal answer and a
+// print in progress is when this is worth asking.
+func files(ctx context.Context, cfg *config.Config, rw *report) {
+	client, err := ftps.Dial(ctx, cfg.Host, cfg.AccessCode, ftpsTimeout)
+	if err != nil {
+		rw.printf("  unreachable: %v\n", err)
+		return
+	}
+	defer func() { _ = client.Close() }()
+
+	found := 0
+	for _, dir := range []string{"/", "/cache/"} {
+		lines, err := client.List(ctx, dir, ftpsTimeout)
+		if err != nil {
+			rw.printf("  %-9s %v\n", dir, err)
+			continue
+		}
+		for _, line := range lines {
+			rw.printf("  %-9s %s\n", dir, line)
+			found++
+		}
+	}
+	if found == 0 {
+		rw.println("  empty — no 3mf to take a plate preview from")
 	}
 }
 

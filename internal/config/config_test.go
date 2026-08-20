@@ -114,8 +114,8 @@ func TestOverlayIsOnByDefault(t *testing.T) {
 	if !cfg.Overlay {
 		t.Fatal("Overlay defaulted off")
 	}
-	if cfg.Intro != 5*time.Second || cfg.Tail != 5*time.Second {
-		t.Fatalf("holds default to %v/%v, want 5s each", cfg.Intro, cfg.Tail)
+	if cfg.Intro != 2*time.Second || cfg.Tail != 2*time.Second {
+		t.Fatalf("holds default to %v/%v, want 2s each", cfg.Intro, cfg.Tail)
 	}
 }
 

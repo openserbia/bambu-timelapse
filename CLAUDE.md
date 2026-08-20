@@ -71,6 +71,10 @@ import each other.
   runs before the first capture; only a missing ffmpeg or an unwritable
   staging tree is fatal, everything else degrades loudly. Adding a new
   dependency on the host means adding a check there.
+- **The plate preview is fetched during the print, not after.** A cloud job's
+  3mf exists on the printer only while it prints; `internal/ftps` exists
+  because its vsFTPd needs implicit TLS, a resumed session on the data
+  channel, and the transfer command before the handshake.
 - **The overlay is never load-bearing.** The font is bundled into the binary,
   an unreadable one falls back rather than failing, and an encode that fails
   with a caption is retried without one. A print takes hours and cannot be
