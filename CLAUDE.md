@@ -109,7 +109,13 @@ import each other.
 ## Deployment shape
 
 CI runs on a self-hosted arm64 Pi runner. The image is built there and tagged
-`bambu-timelapse:latest` **locally**. Nothing is pushed to a registry, and
-Watchtower recreates the container when the tag moves. Tagged `v*` pushes cut
-a GitHub Release of cross-compiled tarballs. Don't reintroduce ghcr steps
-unless asked.
+`bambu-timelapse:latest` **locally**, and Watchtower recreates the container
+when that tag moves; the deployment never pulls. Tagged `v*` pushes do two
+more things: goreleaser cuts a GitHub Release of cross-compiled tarballs
+(`.goreleaser.yaml`, run through `task release`), and the same image is pushed
+to `ghcr.io/openserbia/bambu-timelapse` as arm64 only, for pulling somewhere
+that is not this Pi.
+
+`task dist` is the local dry run of the release build. Version, commit and
+date reach the binary through goreleaser's ldflags into `main`, which is what
+`bambu-timelapse version` prints; a build made any other way says `dev`.

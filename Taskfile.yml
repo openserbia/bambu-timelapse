@@ -71,22 +71,17 @@ tasks:
       - CGO_ENABLED=0 go build -tags "netgo osusergo" -trimpath -ldflags="-s -w" -o {{.BUILD_PATH}}/bambu-timelapse ./cmd/bambu-timelapse
 
   dist:
-    desc: Cross-build release archives + checksums into build/dist
-    deps: [deps]
-    vars:
-      VERSION: '{{.VERSION | default "dev"}}'
+    desc: Build the release archives locally, without publishing (goreleaser snapshot)
+    # --snapshot builds off an untagged tree, so this answers "would the
+    # release build?" without a tag and without a token. Same config CI runs,
+    # so a broken .goreleaser.yaml fails here rather than at the tag.
     cmds:
-      - rm -rf {{.BUILD_PATH}}/dist && mkdir -p {{.BUILD_PATH}}/dist
-      # Both architectures from one runner: the binary is pure Go with CGO off,
-      # so cross-compiling costs nothing and needs no emulation.
-      - for arch in amd64 arm64; do
-          CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -tags "netgo osusergo" -trimpath
-            -ldflags="-s -w" -o {{.BUILD_PATH}}/dist/bambu-timelapse ./cmd/bambu-timelapse;
-          tar -czf {{.BUILD_PATH}}/dist/bambu-timelapse_{{.VERSION}}_linux_$arch.tar.gz
-            -C {{.BUILD_PATH}}/dist bambu-timelapse;
-          rm {{.BUILD_PATH}}/dist/bambu-timelapse;
-        done
-      - cd {{.BUILD_PATH}}/dist && sha256sum *.tar.gz > SHA256SUMS
+      - goreleaser release --snapshot --clean
+
+  release:
+    desc: Cut the release for the current tag (CI runs this; needs GITHUB_TOKEN)
+    cmds:
+      - goreleaser release --clean
 
   debug:
     desc: One diagnostic snapshot from the printer (task debug -- -raw)

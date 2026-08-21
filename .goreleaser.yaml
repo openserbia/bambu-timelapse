@@ -1,0 +1,57 @@
+version: 2
+project_name: bambu-timelapse
+
+# Under build/, which is already gitignored, rather than a second ignored
+# directory at the root.
+dist: build/dist
+
+builds:
+  - id: bambu-timelapse
+    main: ./cmd/bambu-timelapse
+    binary: bambu-timelapse
+    env:
+      - CGO_ENABLED=0
+    # netgo/osusergo keep DNS and user lookups in Go rather than glibc's NSS,
+    # which is what makes the binary run on the Alpine runtime image as well
+    # as on a distro host. Same flags task build uses.
+    flags:
+      - -trimpath
+      - -tags=netgo,osusergo
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .FullCommit }}
+      - -X main.date={{ .CommitDate }}
+    goos: [linux]
+    goarch: [amd64, arm64]
+    # CommitDate rather than the build clock: two builds of one tag then
+    # produce identical binaries.
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+archives:
+  - formats: [tar.gz]
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    files:
+      - README.md
+
+checksum:
+  # The name the previous hand-rolled release used, kept so a download script
+  # written against it still works.
+  name_template: SHA256SUMS
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^chore:'
+      - '^test:'
+
+release:
+  # A tag like v1.0.0-rc.1 publishes as a prerelease without a second config.
+  prerelease: auto
+  footer: |
+    The container image is published to `ghcr.io/openserbia/bambu-timelapse`
+    for `linux/arm64` only, because CI builds it natively on the Pi that runs
+    it.

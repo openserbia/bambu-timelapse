@@ -29,16 +29,39 @@ jobs:
   image:
     needs: ci
     if: github.event_name == 'push'
-    # Builds the image ON the host that runs it and tags it locally. No
-    # registry: ghcr is off for now, so the image never leaves this machine,
-    # the same arrangement media-puller uses on this Pi. Compose references
-    # bambu-timelapse:latest with pull_policy:never.
+    # Builds the image ON the host that runs it and tags it locally, which is
+    # what the deployment consumes: compose references bambu-timelapse:latest
+    # with pull_policy:never and Watchtower recreates the container when that
+    # tag moves. A tag push additionally publishes the same image to ghcr, so
+    # a released version can be pulled somewhere that is not this Pi.
     runs-on: [self-hosted, rpi]
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v5
 
       - name: Build the local image
         run: docker build -t bambu-timelapse:latest .
+
+      # arm64 only, deliberately: the image is built natively on the runner
+      # that runs it, and cross-building the other architecture would mean
+      # qemu for an image nothing on amd64 pulls. The release archives cover
+      # amd64; the image does not.
+      - name: Publish the image
+        if: github.ref_type == 'tag'
+        env:
+          VERSION: ${{ github.ref_name }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          repo="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+          docker tag bambu-timelapse:latest "$repo:${VERSION#v}"
+          docker tag bambu-timelapse:latest "$repo:latest"
+          docker push "$repo:${VERSION#v}"
+          docker push "$repo:latest"
+          docker logout ghcr.io
 
       # Watchtower on the Pi watches for local image changes and recreates the
       # container, so a rebuilt tag is all a deploy needs. Guarded so a first
@@ -56,18 +79,14 @@ jobs:
     permissions:
       contents: write
     steps:
+      # goreleaser reads the tag and every commit since the previous one to
+      # write the changelog, so a shallow checkout without tags produces a
+      # release named after nothing.
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-      - name: Build release archives
-        run: devbox run -- task dist VERSION=${GITHUB_REF_NAME#v}
-
-      # Binaries only while ghcr is disabled; the versioned image tag comes
-      # back with the registry.
-      - name: Publish release
+      - name: Build and publish the release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            --title "${GITHUB_REF_NAME}" \
-            --generate-notes \
-            build/dist/*.tar.gz build/dist/SHA256SUMS
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: devbox run -- task release

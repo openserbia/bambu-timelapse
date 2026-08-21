@@ -8,6 +8,7 @@
     "go-task":  "latest",
     "gci":      "latest",
     "gitleaks": "latest",
+    "goreleaser": "latest",
     "git":      "latest"
   },
   "env": {

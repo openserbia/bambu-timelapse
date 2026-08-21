@@ -361,16 +361,33 @@ is 1 means the camera is failing even though the printer is fine.
 
 ## Releases
 
-Pushing a `v*` tag cuts a release: cross-compiled `linux/amd64` and
-`linux/arm64` archives with a `SHA256SUMS`, attached to a GitHub Release.
-
-The container image is **not published to a registry**. CI builds it on the
-rpi runner and tags it `bambu-timelapse:latest` locally, where the service
-runs; Watchtower recreates the container when that tag moves. Compose
-therefore uses `pull_policy: never`.
+Pushing a `v*` tag cuts a release. goreleaser cross-compiles `linux/amd64`
+and `linux/arm64`, writes the archives and a `SHA256SUMS`, and attaches them
+to a GitHub Release with a changelog built from the commits since the previous
+tag.
 
 ```sh
-git tag v0.1.0 && git push origin v0.1.0
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+The same tag publishes the container image to
+`ghcr.io/openserbia/bambu-timelapse`, versioned and `latest`. That image is
+`linux/arm64` only: CI builds it natively on the Pi that runs it, and
+cross-building the other architecture would mean qemu for an image nothing
+pulls. The archives cover amd64 instead.
+
+The deployment does not use the registry. CI also tags the image
+`bambu-timelapse:latest` locally on the runner, where the service runs, and
+Watchtower recreates the container when that tag moves, so compose uses
+`pull_policy: never`. ghcr is for pulling a released version somewhere that is
+not this Pi.
+
+`task dist` runs the same goreleaser config against an untagged tree, so a
+broken release build fails on a laptop rather than at the tag. The binary
+reports what it is:
+
+```sh
+bambu-timelapse version   # bambu-timelapse 1.0.0 (<sha>, built <date>)
 ```
 
 ## Development

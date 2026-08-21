@@ -212,6 +212,44 @@
           "store_path": "/nix/store/x9x07fj5xhwp1riqms54b75izn59xdch-go-task-3.52.0"
         }
       }
+    },
+    "goreleaser@latest": {
+      "last_modified": "2026-08-12T11:28:58Z",
+      "resolved": "github:NixOS/nixpkgs/044bfe75bfe4c7bbe043dc17b5e42ea823b84a09#goreleaser",
+      "source": "devbox-search",
+      "version": "2.17.1",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/f0zjyyfqgkbpv4ciz7msndr6qv7z15cc-goreleaser-2.17.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/f0zjyyfqgkbpv4ciz7msndr6qv7z15cc-goreleaser-2.17.1"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/n63mkxk6ig4cb3rxy6l6qvgiyld2dp7x-goreleaser-2.17.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/n63mkxk6ig4cb3rxy6l6qvgiyld2dp7x-goreleaser-2.17.1"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/l4j646ybpp1v7yfp25l74fhmcya2qsfq-goreleaser-2.17.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/l4j646ybpp1v7yfp25l74fhmcya2qsfq-goreleaser-2.17.1"
+        }
+      }
     }
   }
 }

@@ -29,6 +29,16 @@ const defaultDebugWait = 20 * time.Second
 // distinct from exitError so a wrapper can tell the two apart.
 const exitUsage = 2
 
+// Build metadata, set by goreleaser's ldflags at release time. A binary built
+// any other way says "dev", which is the honest answer: Watchtower recreates
+// this container from a tag that moves, so the running process has to be able
+// to say which build it is.
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	// run() rather than exiting inline: os.Exit skips deferred calls, so the
 	// signal handler's stop() would never run.
@@ -42,6 +52,9 @@ func run() int {
 			return runDebug(os.Args[2:])
 		case "record":
 			return runRecord(os.Args[2:])
+		case "version":
+			fmt.Printf("bambu-timelapse %s (%s, built %s)\n", version, commit, date)
+			return 0
 		}
 	}
 
