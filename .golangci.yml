@@ -7,8 +7,8 @@
 version: "2"
 
 run:
-  # This repo does not vendor (unlike tg-antispam, where this config came
-  # from). Leaving it on "vendor" fails the lint with "inconsistent vendoring"
+  # This repo does not vendor, unlike the template this config came from.
+  # Leaving it on "vendor" fails the lint with "inconsistent vendoring"
   # rather than anything about the code.
   modules-download-mode: mod
   timeout: 5m

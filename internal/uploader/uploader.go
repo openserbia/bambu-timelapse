@@ -1,4 +1,4 @@
-// Package uploader posts a finished timelapse to tg-antispam's media API.
+// Package uploader posts a finished timelapse to a media API.
 package uploader
 
 import (
@@ -18,7 +18,7 @@ import (
 
 const (
 	// uploadTimeout covers the whole POST. A several-hundred-megabyte video
-	// over the tailnet is minutes, not seconds.
+	// over a home uplink is minutes, not seconds.
 	uploadTimeout = 30 * time.Minute
 	// errorBodyLimit bounds how much of a failure response is read back.
 	errorBodyLimit = 64 << 10
@@ -71,7 +71,7 @@ type Uploader struct {
 // this service's business.
 //
 // The timeout covers the whole upload, which for a several-hundred-megabyte
-// video over a tailnet is minutes, not seconds.
+// video over a home uplink is minutes, not seconds.
 func New(apiURL, token string, fields map[string]string) *Uploader {
 	return &Uploader{
 		url: apiURL, token: token, fields: fields,
@@ -119,8 +119,8 @@ func (u *Uploader) Post(ctx context.Context, req Request) ([]int, error) {
 
 	resp, err := u.client.Do(httpReq)
 	if err != nil {
-		// Transport failures are the retryable kind: AX41 rebooting, the
-		// tailnet flapping, DNS blinking.
+		// Transport failures are the retryable kind: the endpoint's host
+		// rebooting, the link flapping, DNS blinking.
 		return nil, &Error{err: err, Retryable: true}
 	}
 	defer func() { _ = resp.Body.Close() }()

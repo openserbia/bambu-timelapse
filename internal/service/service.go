@@ -343,7 +343,8 @@ func (s *Service) reconcile() {
 }
 
 // retryParked re-attempts uploads that were parked by an earlier run, so an
-// AX41 outage during the night resolves itself rather than needing a human.
+// endpoint outage during the night resolves itself rather than needing a
+// human.
 func (s *Service) retryParked(ctx context.Context) {
 	entries, err := os.ReadDir(s.store.FailedDir())
 	if err != nil {

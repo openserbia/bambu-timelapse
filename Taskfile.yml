@@ -12,8 +12,8 @@ tasks:
       # devbox.lock too: govulncheck's verdict depends on the Go TOOLCHAIN as
       # much as on the modules, and most advisories it reports are stdlib. Without
       # this, a toolchain bump leaves a stale "up to date" cache and the scan
-      # never re-runs. (tg-antispam learned this the hard way: a red CI sat
-      # unexplained because `deps` kept reporting itself cached.)
+      # never re-runs. A sibling service learned this the hard way: a red CI
+      # sat unexplained because `deps` kept reporting itself cached.
       - devbox.lock
     cmds:
       - go mod download

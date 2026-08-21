@@ -185,7 +185,7 @@ func TestRetryClassification(t *testing.T) {
 }
 
 func TestTransportFailureIsRetryable(t *testing.T) {
-	// A closed server stands in for AX41 rebooting or the tailnet flapping.
+	// A closed server stands in for the endpoint rebooting or the link flapping.
 	srv := serve(t, 200, "", &capture{})
 	url := srv.URL
 	srv.Close()
