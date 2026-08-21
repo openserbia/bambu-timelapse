@@ -43,10 +43,14 @@ changelog:
   use: github
   sort: asc
   filters:
+    # Anchored on the subject or on the "<sha>: " goreleaser prefixes it with,
+    # and tolerant of a conventional-commit scope: '^docs:' alone matched
+    # neither "chore(deps): ..." nor the rendered line, so v1.0.0's notes
+    # carried every chore commit in the repository.
     exclude:
-      - '^docs:'
-      - '^chore:'
-      - '^test:'
+      - '(^|: )docs(\(.+\))?:'
+      - '(^|: )chore(\(.+\))?:'
+      - '(^|: )test(\(.+\))?:'
 
 release:
   # A tag like v1.0.0-rc.1 publishes as a prerelease without a second config.
