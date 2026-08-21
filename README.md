@@ -361,10 +361,15 @@ is 1 means the camera is failing even though the printer is fine.
 
 ## Releases
 
-Pushing a `v*` tag cuts a release. goreleaser cross-compiles `linux/amd64`
-and `linux/arm64`, writes the archives and a `SHA256SUMS`, and attaches them
-to a GitHub Release with a changelog built from the commits since the previous
-tag.
+Pushing a `v*` tag cuts a release. goreleaser cross-compiles for `linux`,
+`darwin` and `windows` on amd64 and arm64, writes the archives (zip on
+Windows, tar.gz elsewhere) and a `SHA256SUMS`, and attaches them to a GitHub
+Release with a changelog built from the commits since the previous tag.
+
+The daemon deploys to Linux. The macOS and Windows binaries are for the
+laptop-side subcommands, `record` and `debug`, which need a printer on the LAN
+and an ffmpeg on PATH but no container. Free-space reporting is the one
+platform-specific piece: statfs on Unix, `GetDiskFreeSpaceEx` on Windows.
 
 ```sh
 git tag v1.0.0 && git push origin v1.0.0

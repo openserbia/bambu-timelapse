@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -73,18 +72,6 @@ func move(src, dst string) error {
 		return err
 	}
 	return os.Remove(src)
-}
-
-// freeBytes reports free space on the filesystem holding path.
-func freeBytes(path string) (uint64, error) {
-	var st syscall.Statfs_t
-	if err := syscall.Statfs(path, &st); err != nil {
-		return 0, err
-	}
-	if st.Bsize < 0 {
-		return 0, nil
-	}
-	return st.Bavail * uint64(st.Bsize), nil
 }
 
 // clean makes a string safe for a filename, matching what the media API

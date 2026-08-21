@@ -116,6 +116,11 @@ more things: goreleaser cuts a GitHub Release of cross-compiled tarballs
 to `ghcr.io/openserbia/bambu-timelapse` as arm64 only, for pulling somewhere
 that is not this Pi.
 
+Release builds cover linux, darwin and windows on both architectures, so
+anything in `internal/` has to compile on all three: `freeBytes` is split into
+`helpers_unix.go` and `helpers_windows.go` for exactly that reason, and a new
+syscall means a new pair rather than a new `syscall.` call in shared code.
+
 `task dist` is the local dry run of the release build. Version, commit and
 date reach the binary through goreleaser's ldflags into `main`, which is what
 `bambu-timelapse version` prints; a build made any other way says `dev`.
