@@ -3,7 +3,10 @@
 Layer-synced timelapses of Bambu Lab prints, captured from the printer's own
 chamber camera and posted to Telegram when the print finishes.
 
-![A print recorded by this service, at double speed](docs/assets/preview.webp)
+<p align="center">
+  <img src="docs/assets/preview.webp" width="560"
+       alt="A print recorded by this service, at double speed">
+</p>
 
 One print, start to finish, at double speed: the slicer's plate render, a frame
 per layer, then the finished part. The counter bottom left is the layer each
