@@ -50,6 +50,25 @@ checksum:
 changelog:
   use: github
   sort: asc
+  # Short shas: the full 40 characters in a bullet list is noise nobody reads.
+  abbrev: 7
+  # Grouped by conventional-commit type, so a release says what kind of change
+  # it is before you read a single subject line.
+  groups:
+    - title: Features
+      regexp: '(^|: )feat(\(.+\))?:'
+      order: 0
+    - title: Fixes
+      regexp: '(^|: )fix(\(.+\))?:'
+      order: 1
+    - title: Performance
+      regexp: '(^|: )perf(\(.+\))?:'
+      order: 2
+    - title: Build and CI
+      regexp: '(^|: )(build|ci)(\(.+\))?:'
+      order: 3
+    - title: Other
+      order: 99
   filters:
     # Anchored on the subject or on the "<sha>: " goreleaser prefixes it with,
     # and tolerant of a conventional-commit scope: '^docs:' alone matched
@@ -63,7 +82,36 @@ changelog:
 release:
   # A tag like v1.0.0-rc.1 publishes as a prerelease without a second config.
   prerelease: auto
+  header: |
+    Layer-synced timelapses of Bambu Lab prints, captured from the printer's
+    own chamber camera and posted to a media endpoint when the print finishes.
+    No cloud service and none of the printer's storage: telemetry comes off
+    local MQTT, frames off RTSPS, both authenticated with the LAN access code.
   footer: |
-    The container image is published to `ghcr.io/openserbia/bambu-timelapse`
-    for `linux/arm64` only, because CI builds it natively on the Pi that runs
-    it.
+    ## Install
+
+    Archives are attached for linux, macOS and Windows on amd64 and arm64,
+    with a `SHA256SUMS`. ffmpeg is expected on PATH, or pointed at with
+    `FFMPEG_BIN`.
+
+    ```sh
+    tar -xzf {{ .ProjectName }}_{{ .Version }}_linux_arm64.tar.gz
+    ./{{ .ProjectName }} version
+    ```
+
+    The container image ships ffmpeg already, and is `linux/arm64` only
+    because CI builds it natively on the Pi that runs it. On amd64, use the
+    archive.
+
+    ```sh
+    docker pull ghcr.io/openserbia/{{ .ProjectName }}:{{ .Version }}
+    ```
+
+    The daemon deploys to Linux; the macOS and Windows binaries are for
+    `record` and `debug`, which need a printer on the LAN and an ffmpeg on
+    PATH but no container.
+
+    `PRINTER_HOST`, `PRINTER_SERIAL` and `PRINTER_ACCESS_CODE` are the
+    required configuration, plus `MEDIA_API_URL` and `MEDIA_API_TOKEN` when
+    the service posts rather than records locally. The README covers the rest,
+    including what the upload endpoint has to accept.
