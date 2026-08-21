@@ -13,8 +13,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
-	"path/filepath"
 	"sort"
 	"time"
 
@@ -23,11 +21,11 @@ import (
 	"github.com/openserbia/bambu-timelapse/internal/camera"
 	"github.com/openserbia/bambu-timelapse/internal/config"
 	"github.com/openserbia/bambu-timelapse/internal/ftps"
+	"github.com/openserbia/bambu-timelapse/internal/probe"
 	"github.com/openserbia/bambu-timelapse/internal/telemetry"
 )
 
 const (
-	mqttPort      = "8883"
 	dialTimeout   = 3 * time.Second
 	connectWait   = 15 * time.Second
 	defaultWait   = 20 * time.Second
@@ -72,15 +70,15 @@ type Options struct {
 	Frame string
 }
 
-type probe struct {
+type portProbe struct {
 	port string
 	name string
 	note string
 }
 
-var probes = []probe{
-	{"8883", "MQTT/TLS", "telemetry"},
-	{"322", "RTSPS", "camera — closed until LAN Only Liveview is enabled"},
+// The two ports the service depends on are answered by the printer section;
+// these are the ones left over, and are informational.
+var probes = []portProbe{
 	{"990", "FTPS", "file store"},
 	{"6000", "chamber-image", "P1/A1 protocol; vestigial on P2/H2 series"},
 }
@@ -95,8 +93,8 @@ func Run(ctx context.Context, cfg *config.Config, opts Options, out io.Writer) e
 
 	tools := camera.NewTools(cfg.FFmpegBin, cfg.FFprobeBin)
 
-	rw.println("== toolchain ==")
-	toolchain(ctx, tools, rw)
+	rw.println("== printer ==")
+	printer(ctx, cfg, tools, opts.Frame, rw)
 
 	rw.println("\n== ports ==")
 	for _, p := range probes {
@@ -125,39 +123,29 @@ func Run(ctx context.Context, cfg *config.Config, opts Options, out io.Writer) e
 		return dumpRaw(rw, raw)
 	}
 	summarise(rw, state, raw)
-
-	if opts.Frame != "" {
-		rw.println("\n== camera ==")
-		grabFrame(ctx, cfg, tools, opts.Frame, rw)
-	}
 	return rw.err
 }
 
-// toolchain reports what the host gives ffmpeg-dependent work to run on. It
-// is the same probe the service makes at startup, printed rather than logged:
-// "why is there no caption on my timelapse" is answered here or by reading
-// hours of logs.
-func toolchain(ctx context.Context, tools camera.Tools, rw *report) {
-	sup := tools.Detect(ctx)
-	for _, tool := range []struct{ name, path string }{
-		{"ffmpeg", sup.FFmpeg},
-		{"ffprobe", sup.FFprobe},
-	} {
-		if tool.path == "" {
-			rw.printf("  %-9s MISSING\n", tool.name)
-			continue
-		}
-		rw.printf("  %-9s %s\n", tool.name, tool.path)
-	}
-	for _, filter := range []string{
-		camera.FilterDrawtext, camera.FilterSendcmd,
-		camera.FilterTpad, camera.FilterConcat,
-	} {
-		status := "MISSING"
-		if sup.Has(filter) {
+// printer asks the four questions this service exists on top of: is anything
+// at PRINTER_HOST, does the access code work, is LAN Only Liveview enabled,
+// and does a frame come back. Nothing else here means much until they are
+// answered, so they are answered first.
+//
+// The daemon's ffmpeg preflight is deliberately not repeated: whether this
+// build can draw a caption is a question about the encode, hours away, and
+// not why the printer is unreachable now.
+func printer(ctx context.Context, cfg *config.Config, tools camera.Tools, frame string, rw *report) {
+	cam := camera.New(cfg.Host, cfg.AccessCode, grabTimeout, tools)
+	for _, r := range probe.Printer(ctx, cfg.Host, cfg.AccessCode, cam, frame) {
+		status := "FAILED"
+		if r.OK {
 			status = "ok"
 		}
-		rw.printf("  %-9s %s\n", filter, status)
+		rw.printf("  %-9s %-7s %s\n", r.Name, status, r.Detail)
+	}
+	if frame != "" {
+		w, h := tools.Dimensions(ctx, frame)
+		rw.printf("  %-9s %-7s %dx%d\n", "size", "", w, h)
 	}
 }
 
@@ -195,7 +183,7 @@ func snapshot(ctx context.Context, cfg *config.Config, wait time.Duration) (*tel
 	got := make(chan struct{}, 1)
 
 	opts := mqtt.NewClientOptions().
-		AddBroker("ssl://" + net.JoinHostPort(cfg.Host, mqttPort)).
+		AddBroker("ssl://" + net.JoinHostPort(cfg.Host, probe.MQTTPort)).
 		SetClientID(fmt.Sprintf("bambu-debug-%d", time.Now().UnixNano())).
 		SetUsername("bblp").
 		SetPassword(cfg.AccessCode).
@@ -302,19 +290,4 @@ func summarise(rw *report, state *telemetry.State, raw map[string]any) {
 	// The most-asked question, answered up front: nothing in the report
 	// carries toolhead X/Y, so capture cannot be gated on head position.
 	rw.println("\n  note: no toolhead X/Y is reported — capture cannot be gated on head position")
-}
-
-func grabFrame(ctx context.Context, cfg *config.Config, tools camera.Tools, path string, rw *report) {
-	cam := camera.New(cfg.Host, cfg.AccessCode, grabTimeout, tools)
-	if err := cam.Grab(ctx, path); err != nil {
-		rw.printf("  grab FAILED: %v\n", err)
-		rw.println("  (if 322 is closed, enable LAN Only Liveview on the printer)")
-		return
-	}
-	info, err := os.Stat(path)
-	if err != nil {
-		return
-	}
-	w, h := tools.Dimensions(ctx, path)
-	rw.printf("  wrote %s (%d bytes, %dx%d)\n", filepath.Clean(path), info.Size(), w, h)
 }

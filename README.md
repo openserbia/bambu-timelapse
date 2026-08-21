@@ -196,7 +196,19 @@ INFO preflight check=ffmpeg   ok=true  detail=/usr/bin/ffmpeg
 WARN preflight check=ffprobe  ok=false detail="not on PATH; the posted video will carry no dimensions"
 INFO preflight check=staging  ok=true  detail=/staging
 INFO preflight check=overlay  ok=true  detail=/staging/overlay-font.ttf
+INFO preflight check=printer  ok=true  detail=192.168.1.50:8883
+INFO preflight check=access   ok=true  detail="access code accepted"
+WARN preflight check=liveview ok=false detail="322 closed: connection refused — enable LAN Only Liveview on the printer"
+WARN preflight check=camera   ok=false detail="no frame: ..."
 ```
+
+The last four ask the printer rather than the host, and they are the four
+questions a timelapse that never arrived is eventually traced back to: is
+anything at `PRINTER_HOST`, does `PRINTER_ACCESS_CODE` work, is LAN Only
+Liveview enabled, and does a frame actually come back. None of them is fatal
+— the printer is allowed to be off when the service starts, and MQTT
+reconnects on its own — but a wrong access code otherwise stays silent until
+the first layer change, hours in.
 
 Only what makes the service pointless is fatal — no ffmpeg, or a staging tree
 it cannot write to. Everything else degrades and names what was lost: an
@@ -210,7 +222,10 @@ capture nothing anyway — and every other shortfall has to be visible at boot
 rather than discovered at the encode, which happens once, at the end, with
 every frame already taken.
 
-`bambu-timelapse debug` prints the same probe under `== toolchain ==`.
+`bambu-timelapse debug` runs the printer half of this under `== printer ==`.
+It deliberately does not repeat the ffmpeg probe: whether this build can draw
+a caption is a question about an encode hours away, not about why the printer
+is unreachable now.
 
 ## Recording without publishing
 
@@ -261,7 +276,7 @@ gitignored, because the access code is in it.
 ## Debugging
 
 ```sh
-bambu-timelapse debug                      # ports, state, camera + storage config
+bambu-timelapse debug                      # printer checks, ports, state, storage
 bambu-timelapse debug -raw                 # the entire merged report as JSON
 bambu-timelapse debug -frame /tmp/f.jpg    # also grab one still
 ```
@@ -270,9 +285,12 @@ Needs only `PRINTER_HOST`, `PRINTER_SERIAL` and `PRINTER_ACCESS_CODE` — being
 made to configure a publish destination before it will tell you why the
 printer is unreachable gets the diagnostic order backwards.
 
-It answers the questions that otherwise cost a throwaway MQTT client: whether
-322 is open, whether `rtsp_url` still reads `"disable"`, which `task_id` is
-live, and whether the printer has any storage at all.
+It opens with the four checks the daemon makes at startup — printer reachable,
+access code accepted, LAN Only Liveview enabled, a frame actually returned —
+and `-frame` keeps that still rather than discarding it. Then it answers the
+questions that otherwise cost a throwaway MQTT client: whether `rtsp_url`
+still reads `"disable"`, which `task_id` is live, and whether the printer has
+any storage at all.
 
 ## Operating
 

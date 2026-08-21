@@ -36,6 +36,7 @@ before proposing a diff rather than hand-formatting imports.
 | `internal/telemetry` | Decoding the MQTT report topic into a merged `State` |
 | `internal/camera` | ffmpeg/ffprobe: `Grab`, `Encode`, `Crop`, `Dimensions` |
 | `internal/session` | The on-disk job (`staging/job-<task_id>/state.json`) and its lifecycle |
+| `internal/probe` | The four printer checks (reachable, access, liveview, a real grab) shared by preflight and `debug` |
 | `internal/uploader` | The multipart POST and its retryable/terminal error |
 | `internal/service` | Wiring: MQTT lifecycle, capture, finalise, `/metrics`, `/healthz` |
 | `internal/debug` | The one-shot `debug` subcommand |
@@ -70,7 +71,10 @@ import each other.
 - **External dependencies are probed at startup, not at use.** `preflight`
   runs before the first capture; only a missing ffmpeg or an unwritable
   staging tree is fatal, everything else degrades loudly. Adding a new
-  dependency on the host means adding a check there.
+  dependency on the host means adding a check there. The printer half of it
+  lives in `internal/probe` so `debug` reports the same answers; `debug` runs
+  those checks and not the ffmpeg ones, because an unreachable printer is not
+  a question about filters.
 - **The plate preview is fetched during the print, not after.** A cloud job's
   3mf exists on the printer only while it prints; `internal/ftps` exists
   because its vsFTPd needs implicit TLS, a resumed session on the data

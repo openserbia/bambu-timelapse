@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/openserbia/bambu-timelapse/internal/camera"
+	"github.com/openserbia/bambu-timelapse/internal/probe"
 )
 
 // probeFile is written and removed to prove the staging tree is writable,
@@ -72,6 +73,7 @@ func (s *Service) preflight(ctx context.Context) error {
 		})
 	}
 	checks = append(checks, s.captionChecks(sup)...)
+	checks = append(checks, s.printerChecks(ctx, sup)...)
 
 	var fatal []error
 	for _, c := range checks {
@@ -98,6 +100,26 @@ func found(path, missing string) string {
 		return missing
 	}
 	return path
+}
+
+// printerChecks asks the printer itself the questions a missing timelapse is
+// eventually traced back to: wrong address, wrong access code, LAN Only
+// Liveview still off. None of them is fatal — the printer is allowed to be
+// off when the service starts, and MQTT reconnects on its own — but each one
+// is hours of silence explained at the second it is knowable.
+func (s *Service) printerChecks(ctx context.Context, sup camera.Support) []check {
+	cam := s.cam
+	if sup.FFmpeg == "" {
+		// Already reported as fatal; a grab without ffmpeg only repeats it.
+		cam = nil
+	}
+	results := probe.Printer(ctx, s.cfg.Host, s.cfg.AccessCode, cam, "")
+
+	checks := make([]check, 0, len(results))
+	for _, r := range results {
+		checks = append(checks, check{name: r.Name, detail: r.Detail, ok: r.OK})
+	}
+	return checks
 }
 
 // captionChecks reports on the decoration, and turns off whatever this ffmpeg
