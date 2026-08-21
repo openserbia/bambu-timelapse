@@ -118,6 +118,56 @@ not this repository. Fields the service owns — `caption`, `filename`,
 `duration`, `width`, `height`, `no_audio` — are written after the pass-through
 ones, so configuration cannot misdescribe the file being uploaded.
 
+There is no "media API" product to sign up for: `MEDIA_API_URL` is *your*
+endpoint, and what it does with the upload is your business. Forward the file
+to a Telegram bot, a Slack `files.upload`, a Discord webhook, mail it, drop it
+in S3 or a NAS folder, write a row and serve it from a gallery — the service
+neither knows nor cares. Its whole contract is: accept a multipart POST,
+optionally check `Authorization: Bearer <MEDIA_API_TOKEN>`, and answer `200`
+with
+
+```json
+{"data": {"message_ids": [1]}}
+```
+
+`message_ids` is a list of integers that gets logged and otherwise ignored, so
+an endpoint with nothing to identify can return an empty list. Two response
+rules are worth honouring, because the uploader acts on them: `4xx` is treated
+as a permanent rejection and the job is parked, `5xx` as worth retrying. Say
+`503` when your downstream is briefly unavailable and the video will come back;
+say `400` when it never will.
+
+#### Seeing the request before you write that endpoint
+
+`https://webhook.site` records whatever is posted to it, which is enough to see
+the multipart body — and decide how to parse it — before implementing a
+receiver. Open it, copy the "Your unique URL", and point the service at it:
+
+```sh
+MEDIA_API_URL='https://webhook.site/00000000-0000-0000-0000-000000000000'
+MEDIA_API_TOKEN='not-a-real-token'
+MEDIA_API_FIELDS='{"chat_id":"-1001234567890","topic_id":"907"}'
+```
+
+Any other request bin works the same way; so does `nc -l 8080`, or a
+ten-line handler on your laptop. The recorded request shows the body in the
+order the uploader writes it: the `MEDIA_API_FIELDS` entries (sorted by name),
+then `caption`, `filename`, `duration`, `width`, `height`, `no_audio`, then the
+optional `thumbnail`, and the `video` part last. `MEDIA_API_TOKEN` arrives as
+`Authorization: Bearer …`, so use a placeholder — a public bin keeps
+everything it receives. Large bodies are truncated there, so this shows field
+names and ordering, not the file.
+
+Set the bin's response before the first upload, under **Edit** on the
+webhook.site page: status `200`, content type `application/json`, and the body
+above. Its default response is plain text, which the uploader cannot parse and
+treats as terminal, so the job is parked *after* a successful POST — the
+request is still recorded, which is usually all you wanted from it.
+
+Only the daemon posts: `record` is local mode by definition and will not drive
+an endpoint however it is flagged. Seeing a real request means running the
+daemon over a print — a short one first.
+
 Use an operator alias for `PRINTER_NAME`, never the serial: the serial is the
 MQTT topic key and the cloud-binding identifier, and the filename is published
 to a channel.
@@ -318,8 +368,10 @@ git tag v0.1.0 && git push origin v0.1.0
 ## Development
 
 ```sh
-devbox run -- task ci     # lint, test, build
+devbox run -- task ci      # secrets, lint, test, build
 devbox run -- task test
+devbox run -- task secrets # gitleaks, on its own
+devbox run -- task hooks   # install the pre-commit hook; once per clone
 ```
 
 Two tasks drive the binary against the real printer, both reading `.env`:
@@ -333,3 +385,37 @@ devbox run -- task record                           # wait for the next print
 
 `record` writes into `build/recordings/`, which is already gitignored, so a
 test capture never turns up in a commit.
+
+### The pre-commit hook
+
+`task hooks` points `core.hooksPath` at the tracked `.githooks/` directory, so
+the hook is a reviewable file rather than a copy someone's clone silently
+holds a stale version of. It is per-clone git config: run it once after
+cloning.
+
+`.githooks/pre-commit` runs `task secrets` on every commit, and `task lint`
+only when the commit touches `*.go`, `go.mod` or `go.sum` — a README commit
+should not pay for govulncheck. It fails the commit in two further cases: the lint itself failed, or the formatting
+half (gci, gofumpt) rewrote files. That second one matters because the rewrite
+lands in the working tree and not in the index, so committing through it would
+record the unformatted version and leave the fix behind. Review, `git add`,
+commit again.
+
+`git commit --no-verify` skips it for one commit. CI runs the same task, so
+that is a deferral, not an exemption.
+
+### Secret scanning
+
+`task secrets` runs gitleaks twice: over the working tree, which catches a
+credential on its way into a commit, and over history, which catches one that
+is already there. Deleting the line does not delete the blob, so the second
+pass is the one that matters after the fact — and it is why CI checks out with
+`fetch-depth: 0` rather than the default single commit.
+
+`.gitleaks.toml` allowlists `.env`, which is *supposed* to hold a live access
+code and is gitignored for that reason, along with the build and cache trees.
+Everything else is scanned, untracked files included. If a real credential
+does reach a commit, treat the scan as the alarm and not the fix: rotate it —
+for the printer that means Settings → WLAN on the machine — because the value
+is in every clone and in the runner's cache regardless of what the history is
+rewritten into.

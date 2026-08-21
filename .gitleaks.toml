@@ -1,0 +1,20 @@
+# Secret scanning config. `task secrets` runs gitleaks over the working tree
+# and over history; this file only narrows where it looks.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Paths that are not source"
+paths = [
+  # The one file that is supposed to hold a real access code, and is
+  # gitignored for exactly that reason. Scanning it turns every local run red
+  # for a secret that was never going anywhere.
+  '''^\.env$''',
+  # Build output, caches and tool state: not ours, and regenerated.
+  '''^build/''',
+  '''^staging/''',
+  '''^\.devbox/''',
+  '''^\.task/''',
+  '''^\.idea/''',
+  '''^\.code-review-graph/''',
+]

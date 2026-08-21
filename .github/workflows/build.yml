@@ -17,8 +17,13 @@ jobs:
     # and it already has devbox, so there is nothing to bootstrap.
     runs-on: [self-hosted, rpi]
     steps:
+      # Full history: `task secrets` scans commits as well as the working
+      # tree, and the default shallow fetch would leave it one commit to look
+      # at. This repository is small enough that the clone costs nothing.
       - uses: actions/checkout@v5
-      - name: Lint, test, build
+        with:
+          fetch-depth: 0
+      - name: Scan, lint, test, build
         run: devbox run -- task ci
 
   image:

@@ -1,0 +1,37 @@
+#!/usr/bin/env sh
+# Runs the secret scan and `task lint` before every commit. Installed by `task hooks`, which points
+# core.hooksPath at this directory — nothing is copied into .git/hooks, so an
+# edit here takes effect immediately and shows up in the diff like any file.
+#
+# Skip one commit with `git commit --no-verify` when the lint is not the point
+# (a WIP branch, a doc typo mid-rebase). CI runs the same tasks, so that is a
+# deferral, not an exemption.
+set -eu
+
+# Cheap and unconditional: a credential can be staged in a YAML or an .env
+# copy just as easily as in Go, and finding it after the push costs far more
+# than the ~50ms this takes.
+devbox run -- task secrets
+
+# Nothing Go-shaped staged, nothing for golangci-lint to say — a README-only
+# commit should not pay for govulncheck.
+if git diff --cached --quiet -- '*.go' go.mod go.sum; then
+	exit 0
+fi
+
+# The formatting half of `task lint` (gci, gofumpt) rewrites files in place,
+# and those rewrites land in the working tree, not in the index. Committing
+# after one would record the unformatted version and leave the fix dangling,
+# so compare the unstaged diff across the run and stop if it moved.
+before=$(git diff | git hash-object --stdin)
+
+if ! devbox run -- task lint; then
+	echo "pre-commit: lint failed; commit aborted" >&2
+	exit 1
+fi
+
+if [ "$(git diff | git hash-object --stdin)" != "$before" ]; then
+	echo "pre-commit: the formatter rewrote files that are not staged." >&2
+	echo "            review them, 'git add', and commit again." >&2
+	exit 1
+fi

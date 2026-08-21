@@ -14,19 +14,25 @@ read it before changing capture, resume, or upload behaviour.
 ## Commands
 
 Everything runs through devbox + Taskfile — the toolchain (Go, golangci-lint,
-gofumpt, govulncheck) is pinned in `devbox.json`, so bare `go`/`golangci-lint`
+gofumpt, govulncheck, gitleaks) is pinned in `devbox.json`, so bare `go`/`golangci-lint`
 may be a different version than CI's.
 
 ```sh
-devbox run -- task ci      # lint + test + build; what CI runs
+devbox run -- task ci      # secrets + lint + test + build; what CI runs
 devbox run -- task test    # go test ./...
 devbox run -- task lint    # deps, gci+gofumpt write, golangci-lint run
 devbox run -- task build   # static binary into build/
+devbox run -- task secrets # gitleaks over the working tree and history
+devbox run -- task hooks   # core.hooksPath -> .githooks; once per clone
 devbox run -- task dist VERSION=x.y.z
 ```
 
 `task lint` reformats in place (gci import grouping + gofumpt), so run it
 before proposing a diff rather than hand-formatting imports.
+
+`.githooks/pre-commit` runs `task secrets` on every commit, `task lint` on any
+commit touching Go files, and refuses the commit if the formatter rewrote
+something — the rewrite lands in the working tree, not the index.
 
 ## Layout
 
