@@ -3,12 +3,11 @@
 Layer-synced timelapses of Bambu Lab prints, captured from the printer's own
 chamber camera and posted to Telegram when the print finishes.
 
-[![A print recorded by this service, at double speed](docs/assets/preview.webp)](docs/assets/example.mp4)
+![A print recorded by this service, at double speed](docs/assets/preview.webp)
 
 One print, start to finish, at double speed: the slicer's plate render, a frame
 per layer, then the finished part. The counter bottom left is the layer each
-frame was taken on. [The full-rate MP4](docs/assets/example.mp4) is in
-`docs/assets/`.
+frame was taken on.
 
 No cloud, and none of the printer's storage. Telemetry comes off MQTT, frames
 off the RTSPS live view, both authenticated with the printer's LAN access code.
