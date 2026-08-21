@@ -44,7 +44,7 @@ func (s *Service) stagingWritable() (bool, error) {
 }
 
 // move renames a file, falling back to a copy when the destination is on
-// another filesystem — which it usually is: staging is a container volume and
+// another filesystem, which it usually is: staging is a container volume and
 // the output directory is wherever the operator asked for it.
 func move(src, dst string) error {
 	if err := os.Rename(src, dst); err == nil {

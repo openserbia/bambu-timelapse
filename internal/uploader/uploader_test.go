@@ -92,7 +92,7 @@ func TestPostSendsVideoLastWithExactLength(t *testing.T) {
 	// The endpoint streams the video part and stops reading there, so anything
 	// after it would never be seen.
 	if last := got.order[len(got.order)-1]; last != "video" {
-		t.Fatalf("part order %v — video must be last", got.order)
+		t.Fatalf("part order %v; video must be last", got.order)
 	}
 	if got.video != "MP4BYTES" || got.thumb != "JPEGBYTES" {
 		t.Fatalf("video=%q thumb=%q", got.video, got.thumb)
@@ -121,7 +121,7 @@ func TestNoRoutingFieldsWhenUnconfigured(t *testing.T) {
 	defer srv.Close()
 
 	// With no pass-through configured the body carries only what the service
-	// itself owns — nothing consumer-specific is invented.
+	// itself owns, with nothing consumer-specific invented.
 	up := New(srv.URL, "tok", nil)
 	if _, err := up.Post(context.Background(), Request{
 		VideoPath: writeFixture(t, "v.mp4", "x"), Filename: "v.mp4",

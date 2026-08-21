@@ -37,7 +37,7 @@ func TestCreateThenReopenIsAResume(t *testing.T) {
 		t.Fatalf("state lost across resume: frames=%d last_layer=%d", again.Frames, again.LastLayer)
 	}
 	if !again.StartedAt.Equal(first.StartedAt) {
-		t.Fatal("StartedAt changed on resume — the caption's duration would be wrong")
+		t.Fatal("StartedAt changed on resume; the caption's duration would be wrong")
 	}
 	if again.Nozzle.Count != 1 || again.Nozzle.Peak != 220 {
 		t.Fatalf("temperature stats lost: %+v", again.Nozzle)

@@ -3,6 +3,15 @@
 Layer-synced timelapses of Bambu Lab prints, captured from the printer's own
 chamber camera and posted to Telegram when the print finishes.
 
+<video src="https://github.com/openserbia/bambu-timelapse/raw/main/docs/assets/example.mp4"
+       controls muted loop playsinline width="100%">
+  <a href="docs/assets/example.mp4">One print, start to finish (MP4)</a>
+</video>
+
+One print, start to finish: the slicer's plate render, a frame per layer, then
+the finished part. The counter bottom left is the layer each frame was taken
+on.
+
 No cloud, and none of the printer's storage. Telemetry comes off MQTT, frames
 off the RTSPS live view, both authenticated with the printer's LAN access code.
 
@@ -247,7 +256,7 @@ INFO preflight check=staging  ok=true  detail=/staging
 INFO preflight check=overlay  ok=true  detail=/staging/overlay-font.ttf
 INFO preflight check=printer  ok=true  detail=192.168.1.50:8883
 INFO preflight check=access   ok=true  detail="access code accepted"
-WARN preflight check=liveview ok=false detail="322 closed: connection refused — enable LAN Only Liveview on the printer"
+WARN preflight check=liveview ok=false detail="322 closed: connection refused; enable LAN Only Liveview on the printer"
 WARN preflight check=camera   ok=false detail="no frame: ..."
 ```
 

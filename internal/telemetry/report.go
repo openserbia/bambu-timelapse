@@ -81,8 +81,8 @@ func (s *State) Merge(payload []byte) bool {
 }
 
 // forgetPreviousJob clears the outgoing job's fields when a report announces
-// a new one. Device-scoped fields — temperatures, the AMS, the camera — are
-// left alone: the printer sends those rarely, and dropping the whole view
+// a new one. Device-scoped fields are left alone, meaning temperatures and
+// the AMS and the camera: the printer sends those rarely, and dropping them
 // would blind the service until the next full snapshot.
 func (s *State) forgetPreviousJob(section map[string]any) {
 	current := s.TaskID()
@@ -175,8 +175,8 @@ func (s *State) JobName() string { return s.String("subtask_name") }
 //
 // Cloud-dispatched prints populate task_id and leave lan_task_id as "0";
 // LAN-dispatched prints do the reverse. Trying only one of them silently
-// breaks resume for half of all prints — and in the direction that is hardest
-// to notice, since the service still records perfectly well, it just starts a
+// breaks resume for half of all prints, in the direction that is hardest to
+// notice, since the service still records perfectly well, it just starts a
 // fresh session on every restart.
 func (s *State) TaskID() string {
 	for _, key := range []string{"task_id", "subtask_id", "lan_task_id", "job_id"} {

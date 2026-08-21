@@ -67,7 +67,7 @@ type Uploader struct {
 }
 
 // New builds an Uploader. fields are posted verbatim with every video and are
-// never interpreted here — they carry the consumer's routing, which is not
+// never interpreted here. They carry the consumer's routing, which is not
 // this service's business.
 //
 // The timeout covers the whole upload, which for a several-hundred-megabyte
@@ -84,7 +84,7 @@ func New(apiURL, token string, fields map[string]string) *Uploader {
 // The body is assembled by hand rather than with mime/multipart's Writer
 // because two properties matter: the 'video' part must come LAST (the
 // endpoint streams it and stops reading there), and the file must stream off
-// disk rather than be buffered — this runs on a Pi beside the rest of a
+// disk rather than be buffered, since this runs on a Pi beside the rest of a
 // stack. An io.Pipe would satisfy the first but forces chunked encoding; the
 // exact Content-Length computed here lets the server size the request up
 // front.
@@ -149,7 +149,7 @@ func (u *Uploader) Post(ctx context.Context, req Request) ([]int, error) {
 }
 
 // prologue renders every scalar field, then the optional cover, then the
-// header of the video part — everything up to the file's bytes.
+// header of the video part: everything up to the file's bytes.
 func (u *Uploader) prologue(boundary string, req Request) []byte {
 	var buf bytes.Buffer
 

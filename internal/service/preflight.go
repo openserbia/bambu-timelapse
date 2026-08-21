@@ -104,8 +104,8 @@ func found(path, missing string) string {
 
 // printerChecks asks the printer itself the questions a missing timelapse is
 // eventually traced back to: wrong address, wrong access code, LAN Only
-// Liveview still off. None of them is fatal — the printer is allowed to be
-// off when the service starts, and MQTT reconnects on its own — but each one
+// Liveview still off. None of them is fatal, since the printer is allowed to
+// be off when the service starts and MQTT reconnects on its own, but each one
 // is hours of silence explained at the second it is knowable.
 func (s *Service) printerChecks(ctx context.Context, sup camera.Support) []check {
 	cam := s.cam

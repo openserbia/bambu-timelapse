@@ -138,7 +138,7 @@ func TestHoldsRejectNegatives(t *testing.T) {
 func TestMissingFontIsNotFatal(t *testing.T) {
 	// The font is decoration on a video. An unreadable one costs the caption
 	// and is logged; refusing to boot over it would stop the service
-	// recording prints at all — which is what it is for.
+	// recording prints at all, which is what it is for.
 	setPrinterEnv(t)
 	t.Setenv("MEDIA_API_URL", "http://media.internal/upload")
 	t.Setenv("MEDIA_API_TOKEN", "token")

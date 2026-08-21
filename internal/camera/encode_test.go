@@ -152,8 +152,8 @@ func TestWriteCommandsTimesEveryFrame(t *testing.T) {
 }
 
 // TestEncodeProducesPlayableVideo runs the real ffmpeg when one is on PATH.
-// CI's toolchain deliberately does not ship it — the runtime image does — so
-// this skips rather than fails there.
+// CI's toolchain deliberately does not ship it, though the runtime image
+// does, so this skips rather than fails there.
 func TestEncodeProducesPlayableVideo(t *testing.T) {
 	ffmpegBin, err := exec.LookPath("ffmpeg")
 	if err != nil {

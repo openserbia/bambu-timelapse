@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   ci:
-    # The rpi pool is native arm64 — the architecture this actually runs on —
+    # The rpi pool is native arm64, the architecture this actually runs on,
     # and it already has devbox, so there is nothing to bootstrap.
     runs-on: [self-hosted, rpi]
     steps:
@@ -30,7 +30,7 @@ jobs:
     needs: ci
     if: github.event_name == 'push'
     # Builds the image ON the host that runs it and tags it locally. No
-    # registry: ghcr is off for now, so the image never leaves this machine —
+    # registry: ghcr is off for now, so the image never leaves this machine,
     # the same arrangement media-puller uses on this Pi. Compose references
     # bambu-timelapse:latest with pull_policy:never.
     runs-on: [self-hosted, rpi]

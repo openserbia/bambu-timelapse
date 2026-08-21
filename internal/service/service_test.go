@@ -129,7 +129,7 @@ func TestOverlayCountsCapturedLayersNotFrames(t *testing.T) {
 	svc := testService(t)
 	svc.cfg.Overlay = true
 	svc.font = "/font.ttf"
-	// Layer 3 was skipped — a grab was still in flight — so frame 3 is layer
+	// Layer 3 was skipped, a grab was still in flight, so frame 3 is layer
 	// 4. Numbering the caption off the frame index would say layer 3 while the
 	// footage shows the layer after it.
 	sess := &session.Session{

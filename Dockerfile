@@ -4,7 +4,7 @@ RUN apk add --no-cache build-base bash curl
 RUN curl -fsSL https://get.jetpack.io/devbox | FORCE=1 bash
 
 WORKDIR /app
-# devbox files first — this layer caches until the toolchain pins change.
+# devbox files first, so this layer caches until the toolchain pins change.
 COPY devbox.json devbox.lock ./
 RUN devbox install
 

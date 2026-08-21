@@ -8,7 +8,7 @@ func TestMergeKeepsFieldsAcrossDeltas(t *testing.T) {
 		t.Fatal("first report rejected")
 	}
 	// The printer sends deltas. A message carrying only layer_num must not
-	// erase gcode_state — assigning instead of merging would make every such
+	// erase gcode_state. Assigning instead of merging would make every such
 	// message look like a transition out of RUNNING.
 	s.Merge([]byte(`{"print":{"layer_num":11}}`))
 

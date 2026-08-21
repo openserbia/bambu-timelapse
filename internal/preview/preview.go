@@ -2,7 +2,7 @@
 //
 // The render is what the printer shows on its own screen: the plate as it was
 // sliced, before any of it existed. It lives inside the job's 3mf, which for
-// a cloud print the printer keeps only while it is printing it — so this is
+// a cloud print the printer keeps only while it is printing it, so this is
 // worth asking for at the start of a job and pointless afterwards.
 package preview
 

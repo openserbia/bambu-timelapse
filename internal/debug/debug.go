@@ -1,8 +1,8 @@
 // Package debug implements the one-shot diagnostic dump.
 //
-// It exists because every question this service raises — is the camera on, is
-// LAN liveview enabled, which task id is live, does the printer even have
-// storage — is answered by data the printer already publishes. Reading it
+// It exists because every question this service raises is answered by data
+// the printer already publishes: is the camera on, is LAN liveview enabled,
+// which task id is live, does the printer even have storage. Reading it
 // should not require writing a throwaway MQTT client each time.
 package debug
 
@@ -174,7 +174,7 @@ func files(ctx context.Context, cfg *config.Config, rw *report) {
 		}
 	}
 	if found == 0 {
-		rw.println("  empty — no 3mf to take a plate preview from")
+		rw.println("  empty: no 3mf to take a plate preview from")
 	}
 }
 
@@ -211,7 +211,7 @@ func snapshot(ctx context.Context, cfg *config.Config, wait time.Duration) (*tel
 	token := client.Connect()
 	if !token.WaitTimeout(connectWait) {
 		// A timeout leaves the token with no error to wrap, which printed as
-		// "mqtt connect: %!w(<nil>)" — the least useful line in a tool whose
+		// "mqtt connect: %!w(<nil>)", the least useful line in a tool whose
 		// whole job is telling you why the printer is unreachable.
 		return nil, fmt.Errorf("mqtt connect: no answer from %s within %s",
 			cfg.Host, connectWait)
@@ -285,9 +285,9 @@ func summarise(rw *report, state *telemetry.State, raw map[string]any) {
 	sort.Strings(nested)
 	rw.println("\n== sections present ==")
 	rw.printf("  nested (%d): %v\n", len(nested), nested)
-	rw.printf("  scalar (%d keys) — use -raw for the full dump\n", len(scalar))
+	rw.printf("  scalar (%d keys); use -raw for the full dump\n", len(scalar))
 
 	// The most-asked question, answered up front: nothing in the report
 	// carries toolhead X/Y, so capture cannot be gated on head position.
-	rw.println("\n  note: no toolhead X/Y is reported — capture cannot be gated on head position")
+	rw.println("\n  note: no toolhead X/Y is reported, so capture cannot be gated on head position")
 }

@@ -39,7 +39,7 @@ const (
 	// commandLead pulls each command a quarter of a frame earlier than the
 	// frame it belongs to. sendcmd fires on the first pts at or past its
 	// timestamp, and a frame's pts is a rational that can land a hair below
-	// the decimal written here — without the lead that rounding shows the
+	// the decimal written here. Without the lead, that rounding shows the
 	// previous layer's number for one frame.
 	commandLead = 0.25
 	// commandsPerm keeps the command file owner-only, like the rest of staging.
@@ -74,7 +74,7 @@ func (s Still) shown() bool { return s.Path != "" && s.Hold > 0 }
 type EncodeOptions struct {
 	FPS  int
 	Crop string
-	// Intro opens the video — what the print was meant to be. Outro closes it
+	// Intro opens the video with what the print was meant to be. Outro closes it
 	// with what it turned out to be, which is the frame worth ending on: the
 	// last captured layer still has the toolhead sitting in it.
 	Intro Still
@@ -155,9 +155,9 @@ func (t Tools) Encode(ctx context.Context, dir, out string, opts EncodeOptions) 
 // buildGraph assembles the filtergraph and the output label to map.
 //
 // One graph for every combination rather than a -vf fast path: the ordering
-// is the part that has to be right — crop before the caption so the caption
+// is the part that has to be right. Crop before the caption so the caption
 // is not cropped away, the caption before the tail so the held frame keeps
-// it — and a second code path would be a second place to get that wrong.
+// it. A second code path would be a second place to get that wrong.
 func buildGraph(dir string, opts EncodeOptions, stills bool, width, height int) (graph, label string, err error) {
 	var main []string
 	if opts.Crop != "" {
@@ -264,8 +264,8 @@ func writeCommands(path string, lines []string, fps int) error {
 //
 // A job name arrives from the printer and can hold anything the slicer let
 // someone type. Escaping it correctly would mean escaping for three nested
-// parsers at once — the filtergraph, the filter's own option list, and
-// drawtext's %{} expansion — so the characters that mean something to any of
+// parsers at once, the filtergraph and the filter's own option list and
+// drawtext's %{} expansion, so the characters that mean something to any of
 // them are dropped instead. A caption is decoration; a filtergraph that
 // fails to parse loses the whole video.
 func overlayText(s string) string {

@@ -8,8 +8,8 @@
 // a client that handshakes on connect hangs waiting for a server that is
 // waiting for it.
 //
-// What is here is the little that this service needs — list a directory, read
-// one file — rather than a general FTP client.
+// What is here is the little that this service needs, list a directory and
+// read one file, rather than a general FTP client.
 package ftps
 
 import (
@@ -67,9 +67,9 @@ func Dial(ctx context.Context, host, accessCode string, timeout time.Duration) (
 		// local network.
 		InsecureSkipVerify: true, //nolint:gosec // see above
 		// ServerName is what crypto/tls keys the session cache by. Without it
-		// the data connection — a different port — would look like a different
-		// server and could not resume, which is the one thing this server
-		// insists on.
+		// the data connection, on a different port, would look like a
+		// different server and could not resume, which is the one thing this
+		// server insists on.
 		ServerName:         host,
 		ClientSessionCache: tls.NewLRUClientSessionCache(sessionCacheSize),
 		MinVersion:         tls.VersionTLS12,
@@ -132,8 +132,8 @@ func (c *Client) List(ctx context.Context, dir string, timeout time.Duration) ([
 	return lines, nil
 }
 
-// Retrieve reads one file whole. Callers fetch small things — a preview, a
-// manifest — so there is no streaming variant to get wrong.
+// Retrieve reads one file whole. Callers fetch small things, a preview or a
+// manifest, so there is no streaming variant to get wrong.
 func (c *Client) Retrieve(ctx context.Context, path string, timeout time.Duration) ([]byte, error) {
 	return c.transfer(ctx, "RETR "+path, timeout)
 }

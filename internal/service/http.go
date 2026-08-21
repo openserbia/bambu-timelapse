@@ -11,9 +11,9 @@ import (
 )
 
 // reportStaleAfter is how long the telemetry may go quiet before the service
-// calls itself unhealthy. The printer reports continuously — a full snapshot
-// every 20-55s — so silence, not a crash, is the failure worth catching: a
-// process that is up but deaf captures nothing and looks perfectly fine.
+// calls itself unhealthy. The printer reports continuously, a full snapshot
+// every 20-55s, so silence rather than a crash is the failure worth catching:
+// a process that is up but deaf captures nothing and looks perfectly fine.
 const (
 	reportStaleAfter  = 5 * time.Minute
 	readHeaderTimeout = 10 * time.Second

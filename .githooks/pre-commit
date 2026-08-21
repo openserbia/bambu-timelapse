@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # Runs the secret scan and `task lint` before every commit. Installed by `task hooks`, which points
-# core.hooksPath at this directory — nothing is copied into .git/hooks, so an
+# core.hooksPath at this directory. Nothing is copied into .git/hooks, so an
 # edit here takes effect immediately and shows up in the diff like any file.
 #
 # Skip one commit with `git commit --no-verify` when the lint is not the point
@@ -13,7 +13,7 @@ set -eu
 # than the ~50ms this takes.
 devbox run -- task secrets
 
-# Nothing Go-shaped staged, nothing for golangci-lint to say — a README-only
+# Nothing Go-shaped staged, nothing for golangci-lint to say. A README-only
 # commit should not pay for govulncheck.
 if git diff --cached --quiet -- '*.go' go.mod go.sum; then
 	exit 0

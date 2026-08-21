@@ -10,7 +10,7 @@ tasks:
       - go.mod
       - go.sum
       # devbox.lock too: govulncheck's verdict depends on the Go TOOLCHAIN as
-      # much as on the modules — most advisories it reports are stdlib. Without
+      # much as on the modules, and most advisories it reports are stdlib. Without
       # this, a toolchain bump leaves a stale "up to date" cache and the scan
       # never re-runs. (tg-antispam learned this the hard way: a red CI sat
       # unexplained because `deps` kept reporting itself cached.)
@@ -47,7 +47,7 @@ tasks:
     desc: Scan the working tree and history for committed credentials
     # Two passes, because they answer different questions: `dir` catches a
     # secret that is about to be committed, `git` catches one that already
-    # was and was later deleted — removing the line does not remove the blob.
+    # was and was later deleted: removing the line does not remove the blob.
     # Not cached on sources: the second pass depends on history, which changes
     # without any tracked file changing.
     #

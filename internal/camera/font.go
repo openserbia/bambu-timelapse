@@ -19,8 +19,8 @@ const (
 // BundledFont writes the font compiled into this binary into dir and returns
 // its path, reusing the file if it is already there.
 //
-// The font travels inside the binary because the alternative — a system
-// package the runtime image happens to carry — made a caption into a boot
+// The font travels inside the binary because the alternative, a system
+// package the runtime image happens to carry, made a caption into a boot
 // dependency: a host without it could not start the service at all, and what
 // it was blocking is decoration on a video that would otherwise be fine.
 func BundledFont(dir string) (string, error) {

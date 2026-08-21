@@ -47,7 +47,7 @@ type Config struct {
 	APIToken string
 	// APIFields are extra form fields posted verbatim alongside the video.
 	//
-	// Routing belongs to whatever consumes the video, not here — a chat id, a
+	// Routing belongs to whatever consumes the video, not here. A chat id, a
 	// topic, a notification preference are all facts about the consumer. The
 	// service passes them through without interpreting them, so it stays a
 	// timelapse recorder rather than a Telegram client.
@@ -69,7 +69,7 @@ type Config struct {
 	// Crop is an ffmpeg crop spec, "w:h:x:y", applied to the encoded video and
 	// the cover. Empty leaves the frame whole. The gantry occupies a fixed
 	// band at the top, so cropping it away is the cheapest way to remove the
-	// toolhead entirely — at the cost of the top of tall prints.
+	// toolhead entirely, at the cost of the top of tall prints.
 	Crop string
 	// Overlay burns the printer name, the job and a live layer counter into
 	// the footage. The counter is driven by the layer each frame was actually
@@ -77,18 +77,18 @@ type Config struct {
 	// counting frames would drift a little further from the truth with every
 	// layer the camera missed.
 	Overlay bool
-	// OverlayFont is an optional path to a font to draw with. Empty — the
-	// default — uses the one compiled into the binary, so a caption never
+	// OverlayFont is an optional path to a font to draw with. Empty, which is
+	// the default, uses the one compiled into the binary, so a caption never
 	// depends on what the host happens to have installed.
 	OverlayFont string
 	// FFmpegBin and FFprobeBin name the binaries to run. Plain names resolve
 	// through PATH; absolute paths are for the environments that have their
-	// own idea of PATH — an IDE run configuration, a cron entry, a unit file.
+	// own idea of PATH: an IDE run configuration, a cron entry, a unit file.
 	FFmpegBin  string
 	FFprobeBin string
 	// PreviewTimeout bounds the FTPS fetch of the slicer's plate render. It
-	// runs while the print does, so it can afford to be patient — but not
-	// indefinitely patient, since nothing else is waiting for it.
+	// runs while the print does, so it can afford to be patient, though not
+	// indefinitely, since nothing else is waiting for it.
 	PreviewTimeout time.Duration
 	// Intro holds the slicer's plate render at the head of the video and Tail
 	// holds the finished print at the end, so the result opens on what the
@@ -118,7 +118,7 @@ func LoadPrinter() (*Config, error) { return load(false) }
 func load(needSink bool) (*Config, error) {
 	// A .env is how this runs on a laptop. In the container there is none and
 	// the environment is the compose file's, so a missing file is not an
-	// error — only a malformed one would be, and that surfaces as a missing
+	// error. Only a malformed one would be, and that surfaces as a missing
 	// required variable below.
 	_ = godotenv.Load()
 
@@ -232,7 +232,7 @@ func validate(cfg *Config) []error {
 var cropSpec = regexp.MustCompile(`^\d+:\d+:\d+:\d+$`)
 
 // megabytes converts a configured MB value to bytes, clamping a negative
-// setting to zero rather than wrapping it into a huge uint64 — a typo'd
+// setting to zero rather than wrapping it into a huge uint64. A typo'd
 // "-1" would otherwise disable capture entirely by making every disk look
 // full.
 func megabytes(n int) uint64 {

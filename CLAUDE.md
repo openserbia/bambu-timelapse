@@ -13,9 +13,9 @@ read it before changing capture, resume, or upload behaviour.
 
 ## Commands
 
-Everything runs through devbox + Taskfile — the toolchain (Go, golangci-lint,
-gofumpt, govulncheck, gitleaks) is pinned in `devbox.json`, so bare `go`/`golangci-lint`
-may be a different version than CI's.
+Everything runs through devbox + Taskfile. The toolchain (Go, golangci-lint,
+gofumpt, govulncheck, gitleaks) is pinned in `devbox.json`, so bare
+`go`/`golangci-lint` may be a different version than CI's.
 
 ```sh
 devbox run -- task ci      # secrets + lint + test + build; what CI runs
@@ -32,7 +32,7 @@ before proposing a diff rather than hand-formatting imports.
 
 `.githooks/pre-commit` runs `task secrets` on every commit, `task lint` on any
 commit touching Go files, and refuses the commit if the formatter rewrote
-something — the rewrite lands in the working tree, not the index.
+something: the rewrite lands in the working tree, not the index.
 
 ## Layout
 
@@ -66,14 +66,14 @@ import each other.
   breaks resume for half of all prints.
 - **Frames are numbered sequentially, never by layer.** ffmpeg's `image2`
   demuxer stops at the first gap, so a dropped frame must not leave one. The
-  layer each frame belongs to is recorded in `session.Layers` instead — that
+  layer each frame belongs to is recorded in `session.Layers` instead. That
   list, not the frame index, is what the burned-in counter reads.
 - **State is saved after every frame.** Anything that must survive a restart
   (frame counter, true start time, temperature stats) belongs in
   `session.Session`, not in a service field.
 - **The uploader knows nothing about its consumer.** Extra form fields come
   from `MEDIA_API_FIELDS` verbatim. Do not add Telegram-specific (or any
-  destination-specific) logic here — that was deliberately removed.
+  destination-specific) logic here. That was deliberately removed.
 - **External dependencies are probed at startup, not at use.** `preflight`
   runs before the first capture; only a missing ffmpeg or an unwritable
   staging tree is fatal, everything else degrades loudly. Adding a new
@@ -94,12 +94,12 @@ import each other.
 
 ## Conventions
 
-- Comments explain *why*, and the existing ones are load-bearing context —
+- Comments explain *why*, and the existing ones are load-bearing context, so
   match that density rather than stripping or padding them.
 - Magic numbers are lint errors (`mnd`). New literals become named constants
   near the top of the file, as elsewhere.
 - `cyclop`, `dupl`, `gocritic`, `gosec` and friends are on; see
-  `.golangci.yml`. It is a copy of `openserbia/go-template`'s config —
+  `.golangci.yml`. It is a copy of `openserbia/go-template`'s config, so
   service-specific rules go in an overrides block at the bottom, not inline.
 - Tests are stdlib `testing`, table-free, one behaviour per named test, using
   `t.TempDir()` for staging. No test framework, no mocking library.
@@ -109,7 +109,7 @@ import each other.
 ## Deployment shape
 
 CI runs on a self-hosted arm64 Pi runner. The image is built there and tagged
-`bambu-timelapse:latest` **locally** — nothing is pushed to a registry, and
+`bambu-timelapse:latest` **locally**. Nothing is pushed to a registry, and
 Watchtower recreates the container when the tag moves. Tagged `v*` pushes cut
 a GitHub Release of cross-compiled tarballs. Don't reintroduce ghcr steps
 unless asked.

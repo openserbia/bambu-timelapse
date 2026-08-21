@@ -80,8 +80,8 @@ func run() int {
 	return 0
 }
 
-// newLogger honours LOG_LEVEL, falling back to info on anything unreadable —
-// a typo in a log level is not a reason to refuse to run.
+// newLogger honours LOG_LEVEL, falling back to info on anything unreadable.
+// A typo in a log level is not a reason to refuse to run.
 func newLogger() *slog.Logger {
 	level := slog.LevelInfo
 	if err := level.UnmarshalText([]byte(os.Getenv("LOG_LEVEL"))); err != nil {

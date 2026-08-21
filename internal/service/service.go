@@ -123,7 +123,7 @@ func New(cfg *config.Config, log *slog.Logger) (*Service, error) {
 	return svc, nil
 }
 
-// resolveFont settles on a font once, at startup, rather than at the encode —
+// resolveFont settles on a font once, at startup, rather than at the encode,
 // which runs once, at the end of a print. Failing to find one costs the
 // caption and says so; it is never a reason not to record the print.
 func (s *Service) resolveFont() string {
@@ -146,8 +146,8 @@ func (s *Service) resolveFont() string {
 // RunTimed captures on a clock rather than on layer changes, and never speaks
 // to the printer's telemetry at all.
 //
-// It exists because the interesting parts of this service — the crop, the
-// caption, the held ends, the encode — are testable in a minute, while a
+// It exists because the interesting parts of this service are testable in a
+// minute: the crop, the caption, the held ends, the encode. Meanwhile a
 // layer-synced capture needs a print. An idle printer still serves its camera.
 // The result is deliberately not layer synced and carries no layer counter:
 // there are no layers, and a caption that implied otherwise would be a claim
@@ -274,7 +274,7 @@ func (s *Service) onConnect(client mqtt.Client) {
 
 	// Ask for a full snapshot immediately. Reports are deltas and a full one
 	// arrives only every 20-55s, so without this a reconnect leaves the service
-	// blind for up to a minute — exactly when it most needs to know whether a
+	// blind for up to a minute, exactly when it most needs to know whether a
 	// job is still running and which one.
 	req := fmt.Sprintf("device/%s/request", s.cfg.Serial)
 	payload := `{"pushing":{"sequence_id":"0","command":"pushall"}}`
@@ -309,7 +309,7 @@ func (s *Service) observe() {
 }
 
 // reconcile settles what to do with sessions left on disk by a previous
-// process — a crash, a reboot, or a container restart mid-print.
+// process: a crash, a reboot, or a container restart mid-print.
 func (s *Service) reconcile() {
 	live := s.state.TaskID()
 	running := s.state.GcodeState() == telemetry.StateRunning || s.state.GcodeState() == telemetry.StatePause
@@ -455,8 +455,8 @@ func (s *Service) noteIdle(state string) {
 // changedLayer decides whether this report is worth a frame.
 //
 // Any change counts, not just an increase. Layer numbers only climb within a
-// job, so a lower one means the number belongs to a different print — and
-// requiring an increase there is what let one job's stale count lock out the
+// job, so a lower one means the number belongs to a different print.
+// Requiring an increase there is what let one job's stale count lock out the
 // whole of the next one.
 func changedLayer(layer, last int) bool {
 	return layer != last && layer > 0
@@ -498,9 +498,9 @@ func (s *Service) begin() *session.Session {
 // fetchPreview asks the printer for the slicer's render of this job and keeps
 // it next to the frames.
 //
-// Failure is ordinary — a LAN print may keep nothing, a cloud print deletes
-// its 3mf when it finishes — so it is logged at info and the video simply
-// opens on its first layer instead.
+// Failure is ordinary, since a LAN print may keep nothing and a cloud print
+// deletes its 3mf when it finishes, so it is logged at info and the video
+// simply opens on its first layer instead.
 func (s *Service) fetchPreview(sess *session.Session) {
 	image, err := preview.Fetch(s.shutdownCtx, s.cfg.Host, s.cfg.AccessCode,
 		sess.JobName, s.state.GcodeFile(), s.cfg.PreviewTimeout)
@@ -733,8 +733,8 @@ func (s *Service) coverFrame(ctx context.Context, sess *session.Session, skipDel
 	return cropped
 }
 
-// awaitCapture blocks until no grab is in flight, or the deadline passes —
-// a stuck ffmpeg must not hold up the post forever.
+// awaitCapture blocks until no grab is in flight, or the deadline passes.
+// A stuck ffmpeg must not hold up the post forever.
 func (s *Service) awaitCapture(limit time.Duration) {
 	deadline := time.Now().Add(limit)
 	for s.capturing.Load() && time.Now().Before(deadline) {

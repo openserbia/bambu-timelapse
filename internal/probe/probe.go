@@ -58,8 +58,8 @@ type Result struct {
 // refused access code says nothing about the camera.
 //
 // frame, when set, is where the test still is kept; otherwise it is taken to
-// a temporary file and discarded. A nil cam skips the grab — the caller has
-// already reported the missing ffmpeg and does not need it twice.
+// a temporary file and discarded. A nil cam skips the grab, since the caller
+// has already reported the missing ffmpeg and does not need it twice.
 func Printer(ctx context.Context, host, accessCode string, cam *camera.Camera, frame string) []Result {
 	results := []Result{reachable(ctx, host)}
 	if !results[0].OK {
@@ -121,7 +121,7 @@ func access(host, accessCode string) Result {
 func liveview(ctx context.Context, host string) Result {
 	if err := dial(ctx, host, RTSPSPort); err != nil {
 		return Result{Name: CheckLiveview, Detail: fmt.Sprintf(
-			"%s closed: %v — enable LAN Only Liveview on the printer",
+			"%s closed: %v; enable LAN Only Liveview on the printer",
 			RTSPSPort, err)}
 	}
 	return Result{Name: CheckLiveview, Detail: "LAN Only Liveview is enabled", OK: true}

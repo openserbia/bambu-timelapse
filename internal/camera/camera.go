@@ -121,7 +121,7 @@ func (t Tools) Crop(ctx context.Context, src, dst, crop string) error {
 }
 
 // Dimensions probes a video's width and height, returning zeroes when ffprobe
-// cannot tell — the media API treats 0 as "unknown" rather than an error.
+// cannot tell. The media API treats 0 as "unknown" rather than an error.
 func (t Tools) Dimensions(ctx context.Context, path string) (width, height int) {
 	cmd := exec.CommandContext(ctx, t.FFprobe, //nolint:gosec // G204: the binary is operator configuration and the path is a file this service just encoded
 		"-v", "error", "-select_streams", "v:0",
@@ -142,9 +142,9 @@ func (t Tools) Dimensions(ctx context.Context, path string) (width, height int) 
 // ffmpeg builds an invocation of the encoder.
 //
 // The G204 waiver lives here rather than at every call site: every argument
-// this package passes is either operator configuration validated at startup —
-// the printer host, the access code, the crop, the font — or a path inside
-// the service's own staging tree.
+// this package passes is either a path inside the service's own staging tree
+// or operator configuration validated at startup: the printer host, the
+// access code, the crop, the font.
 func (t Tools) ffmpeg(ctx context.Context, args ...string) *exec.Cmd {
 	return exec.CommandContext(ctx, t.FFmpeg, args...) //nolint:gosec // see above
 }

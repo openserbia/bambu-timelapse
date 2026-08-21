@@ -1,8 +1,8 @@
 // Package session owns the on-disk record of a print being captured.
 //
 // The state file is what makes the service survive a restart. Everything that
-// would otherwise live only in memory — the frame counter, the true start
-// time, the running temperature statistics — is rewritten after every frame,
+// would otherwise live only in memory, the frame counter and the true start
+// time and the running temperature statistics, is rewritten after every frame,
 // so a Pi that reboots mid-print resumes the same session rather than
 // starting a second one and posting two half timelapses.
 package session
@@ -67,15 +67,15 @@ type Session struct {
 	TotalLayers int       `json:"total_layers"`
 	// Layers is the layer each captured frame belongs to, in frame order.
 	// Frame numbering is sequential and a skipped grab leaves no frame, so
-	// this is the only honest way to caption frame N with a layer number —
-	// anything derived from N alone drifts by every layer the camera missed.
+	// this is the only honest way to caption frame N with a layer number.
+	// Anything derived from N alone drifts by every layer the camera missed.
 	Layers   []int  `json:"layers,omitempty"`
 	Nozzle   Temps  `json:"nozzle"`
 	Bed      Temps  `json:"bed"`
 	Filament string `json:"filament"`
 	Pauses   int    `json:"pauses"`
-	// Partial records that capture began after layer 1 — the service booted
-	// mid-print. The caption must say so: reporting elapsed-since-we-started
+	// Partial records that capture began after layer 1, meaning the service
+	// booted mid-print. The caption must say so: reporting elapsed-since-we-started
 	// as the print duration is a lie the video itself contradicts.
 	Partial bool `json:"partial"`
 
